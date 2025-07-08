@@ -1,3 +1,4 @@
+// index.js with route logging
 require('dotenv').config();
 const express = require('express');
 const bcrypt = require('bcrypt');
@@ -143,8 +144,6 @@ app.post('/api/matchmaking/join', verifyToken, async (req, res) => {
     }
     res.json({ message: `You have joined the queue. Waiting for ${MATCH_SIZE - matchmakingQueue.length} more players.` });
 });
-
-// ### This is the route that is missing on your server ###
 app.get('/api/user/me', verifyToken, async (req, res) => {
     try {
         const query = `
@@ -171,13 +170,19 @@ app.get('/api/user/me', verifyToken, async (req, res) => {
     }
 });
 
-
 // --- CATCH-ALL ROUTE ---
-// This must come AFTER all other API routes
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 app.listen(port, () => {
-  console.log(`🚀 Server listening on port ${port}`);
+    console.log(`🚀 Server listening on port ${port}`);
+
+    // ### NEW DEBUGGING CODE ###
+    console.log("\n--- Registered Routes ---");
+    const routes = app._router.stack
+        .filter(r => r.route)
+        .map(r => `${Object.keys(r.route.methods)[0].toUpperCase().padEnd(7)} ${r.route.path}`);
+    console.log(routes.join("\n"));
+    console.log("-----------------------\n");
 });
