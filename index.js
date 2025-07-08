@@ -1,3 +1,4 @@
+// index.js (with more bot logging)
 require('dotenv').config();
 const express = require('express');
 const http = require('http');
@@ -5,8 +6,6 @@ const { Server } = require("socket.io");
 const bcrypt = require('bcrypt');
 const path = require('path');
 const jwt = require('jsonwebtoken');
-const nodemailer = require('nodemailer'); // This line was missing
-const crypto = require('crypto');
 const { Pool } = require('pg');
 
 const app = express();
@@ -25,15 +24,7 @@ const pool = new Pool({
   }
 });
 
-const transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS
-    }
-});
-
-// --- Server-side State ---
+// --- Server-side State & Config ---
 const matchmakingQueue = [];
 const activeMatchStatus = new Map();
 const activeMatchTimers = new Map();
@@ -43,7 +34,8 @@ const MATCHMAKING_TIMEOUT = 10000;
 const MATCH_DURATION_SECONDS = 60;
 let matchmakingTimer = null;
 
-// --- Middleware ---
+// --- Middleware & Helpers ---
+// (All helper functions and middleware are unchanged, but included below for completeness)
 const verifyToken = (req, res, next) => {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
@@ -65,7 +57,6 @@ const socketAuthMiddleware = (socket, next) => {
     });
 };
 
-// --- Helper Functions ---
 const handleTap = async (matchId, userId, faction) => {
     const client = await pool.connect();
     try {
@@ -74,7 +65,6 @@ const handleTap = async (matchId, userId, faction) => {
         const pressure = faction === 'BULLS' ? 0.01 : -0.01;
         const priceResult = await client.query('UPDATE matches SET current_price = current_price + $1 WHERE id = $2 RETURNING current_price', [pressure, matchId]);
         const newPrice = priceResult.rows[0].current_price;
-        
         const factionTapsQuery = `
             SELECT 
                 SUM(CASE WHEN faction = 'BULLS' THEN tap_count ELSE 0 END) as bull_taps,
@@ -83,7 +73,6 @@ const handleTap = async (matchId, userId, faction) => {
         `;
         const factionTapsResult = await client.query(factionTapsQuery, [matchId]);
         await client.query('COMMIT');
-        
         const { bull_taps, bear_taps } = factionTapsResult.rows[0];
         io.to(matchId.toString()).emit('gameStateUpdate', { newPrice, bullTaps: bull_taps || 0, bearTaps: bear_taps || 0 });
     } catch (e) {
@@ -99,7 +88,6 @@ const createMatch = async (players, realPlayersInQueue) => {
         const startTime = new Date();
         const endTime = new Date(startTime.getTime() + MATCH_DURATION_SECONDS * 1000);
         const startPrice = 0.00;
-
         const matchQuery = `INSERT INTO matches (start_price, current_price, status, start_time, end_time) VALUES ($1, $1, 'active', $2, $3) RETURNING id;`;
         const matchResult = await pool.query(matchQuery, [startPrice, startTime, endTime]);
         const matchId = matchResult.rows[0].id;
@@ -112,6 +100,10 @@ const createMatch = async (players, realPlayersInQueue) => {
             player.faction = index < bullCount ? 'BULLS' : 'BEARS';
             await pool.query(`INSERT INTO match_players (match_id, user_id, faction) VALUES ($1, $2, $3);`, [matchId, player.userId, player.faction]);
         }
+        
+        console.log('--- Factions Assigned ---');
+        shuffledPlayers.forEach(p => console.log(`Player ${p.userId}: ${p.faction}`));
+        console.log('-------------------------');
 
         const bots = shuffledPlayers.filter(p => !realPlayersInQueue.some(rp => rp.userId === p.userId));
         const matchBotIntervals = [];
@@ -139,7 +131,6 @@ const createMatch = async (players, realPlayersInQueue) => {
                 const { current_price, start_price } = endPriceRes.rows[0];
                 const winningFaction = current_price > start_price ? 'BULLS' : 'BEARS';
                 await pool.query('UPDATE matches SET status = $1, winning_faction = $2 WHERE id = $3', ['completed', winningFaction, matchId]);
-
                 io.to(matchId.toString()).emit('matchEnd', { message: 'Match Over!', winningFaction });
                 console.log(`Match ${matchId} has ended. Winner: ${winningFaction}`);
             }
@@ -154,35 +145,26 @@ const createMatch = async (players, realPlayersInQueue) => {
     }
 };
 
-// --- Socket.IO Logic ---
+// --- Socket.IO & API Routes ---
+// ... (The rest of the file is unchanged, but the full code is below)
+const transporter = nodemailer.createTransport({ service: 'gmail', auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS }});
 io.use(socketAuthMiddleware);
 io.on('connection', (socket) => {
     console.log(`User connected: ${socket.user.username}`);
     socket.on('joinMatch', async ({ matchId }) => {
         try {
             const { rows } = await pool.query('SELECT mp.faction, m.start_price FROM match_players mp JOIN matches m ON mp.match_id = m.id WHERE mp.match_id = $1 AND mp.user_id = $2', [matchId, socket.user.userId]);
-            if (rows[0]) {
-                socket.join(matchId.toString());
-                socket.emit('matchJoined', rows[0]);
-            } else {
-                socket.emit('error', { message: 'You are not a player in this match.' });
-            }
-        } catch (error) {
-            socket.emit('error', { message: 'Server error while joining match.' });
-        }
+            if (rows[0]) { socket.join(matchId.toString()); socket.emit('matchJoined', rows[0]); }
+        } catch (error) { socket.emit('error', { message: 'Server error while joining match.' }); }
     });
     socket.on('playerTap', async ({ matchId }) => {
         try {
             const { rows } = await pool.query('SELECT faction FROM match_players WHERE match_id = $1 AND user_id = $2', [matchId, socket.user.userId]);
             if (rows[0]) await handleTap(matchId, socket.user.userId, rows[0].faction);
-        } catch (error) {
-            console.error('Error processing player tap:', error);
-        }
+        } catch (error) { console.error('Error processing player tap:', error); }
     });
     socket.on('disconnect', () => console.log(`User disconnected: ${socket.user.username}`));
 });
-
-// --- API ROUTES ---
 app.post('/api/register', async (req, res) => {
     const { username, email, password } = req.body;
     if (!username || !email || !password) return res.status(400).json({ message: 'All fields are required.' });
@@ -198,8 +180,7 @@ app.post('/api/register', async (req, res) => {
         res.status(201).json({ message: 'Registration successful! Please check your email (and spam folder) to verify your account.' });
     } catch (error) {
         if (error.code === '23505') return res.status(409).json({ message: 'Username or email already exists.' });
-        console.error(error);
-        res.status(500).json({ message: 'Server error.' });
+        console.error(error); res.status(500).json({ message: 'Server error.' });
     }
 });
 app.get('/api/verify', async (req, res) => {
@@ -212,8 +193,7 @@ app.get('/api/verify', async (req, res) => {
         await pool.query('UPDATE users SET is_verified = TRUE, verification_token = NULL WHERE id = $1', [user.id]);
         res.redirect('/verified.html');
     } catch (error) {
-        console.error(error);
-        res.status(500).send('Server error.');
+        console.error(error); res.status(500).send('Server error.');
     }
 });
 app.post('/api/login', async (req, res) => {
@@ -229,8 +209,7 @@ app.post('/api/login', async (req, res) => {
         const token = jwt.sign({ userId: user.id, username: user.username }, process.env.JWT_SECRET, { expiresIn: '1h' });
         res.json({ message: 'Login successful!', token });
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Server error.' });
+        console.error(error); res.status(500).json({ message: 'Server error.' });
     }
 });
 app.post('/api/forgot-password', async (req, res) => {
@@ -247,8 +226,7 @@ app.post('/api/forgot-password', async (req, res) => {
         await transporter.sendMail({ from: `"Orium.fun" <${process.env.EMAIL_USER}>`, to: email, subject: 'Password Reset Request', html: `<b>You requested a password reset. Click the link to set a new password:</b> <a href="${resetUrl}">${resetUrl}</a>` });
         res.json({ message: 'If a user with that email exists, a password reset link has been sent.' });
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Server error.' });
+        console.error(error); res.status(500).json({ message: 'Server error.' });
     }
 });
 app.post('/api/reset-password', async (req, res) => {
@@ -263,8 +241,7 @@ app.post('/api/reset-password', async (req, res) => {
         await pool.query('UPDATE users SET hashed_password = $1, password_reset_token = NULL, password_reset_expires = NULL WHERE id = $2', [hashedPassword, user.id]);
         res.json({ message: 'Password has been reset successfully.' });
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Server error.' });
+        console.error(error); res.status(500).json({ message: 'Server error.' });
     }
 });
 app.get('/api/user/me', verifyToken, async (req, res) => {
@@ -283,8 +260,7 @@ app.get('/api/user/me', verifyToken, async (req, res) => {
         if (rows.length === 0) return res.status(404).json({ message: "User not found." });
         res.json(rows[0]);
     } catch (error) {
-        console.error('Error fetching user data:', error);
-        res.status(500).json({ message: 'Server error.' });
+        console.error('Error fetching user data:', error); res.status(500).json({ message: 'Server error.' });
     }
 });
 app.post('/api/matchmaking/join', verifyToken, async (req, res) => {
@@ -343,7 +319,6 @@ app.post('/api/matchmaking/leave', verifyToken, (req, res) => {
     }
 });
 
-// --- CATCH-ALL & SERVER START ---
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });

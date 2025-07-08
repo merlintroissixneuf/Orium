@@ -225,3 +225,61 @@ a:hover { text-decoration: underline; }
     font-size: 2.5em;
     margin-bottom: 2rem;
 }
+/* --- Arena Styles --- */
+.arena-container {
+    position: relative;
+    border-color: #FFFFFF;
+    padding: 0;
+    overflow: hidden;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer; /* Change cursor to indicate tappable area */
+    -webkit-user-select: none; /* Disable text selection */
+    -ms-user-select: none;
+    user-select: none;
+}
+.fill-background {
+    position: absolute;
+    left: 0;
+    right: 0;
+    width: 100%;
+    transition: height 0.2s linear;
+    will-change: height;
+}
+#bullsFill {
+    background-color: rgba(0, 255, 0, 0.35); /* Less transparent */
+    bottom: 0;
+}
+#bearsFill {
+    background-color: rgba(255, 0, 0, 0.35); /* Less transparent */
+    top: 0;
+}
+.arena-foreground {
+    position: relative;
+    z-index: 2;
+    padding: 2rem;
+    width: 100%;
+    pointer-events: none; /* Make foreground elements unclickable so taps go to the container */
+}
+.arena-header, .faction-scores, .chart-container, .controls {
+    text-shadow: 1px 1px 3px #000; /* Make text more readable */
+}
+.price-display {
+    font-size: 3em;
+    color: #FFFFFF;
+    text-shadow: 2px 2px #FF0000, 4px 4px #00FF00;
+}
+.controls { text-align: center; }
+.tap-instruction {
+    font-size: 1.5em;
+    opacity: 0.5;
+}
+.match-over-screen {
+    text-align: center;
+    pointer-events: auto; /* Re-enable pointer events for the final button */
+}
+.match-over-screen h2 {
+    font-size: 2.5em;
+    margin-bottom: 2rem;
+}

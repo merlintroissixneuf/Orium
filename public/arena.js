@@ -1,8 +1,8 @@
 document.addEventListener('DOMContentLoaded', () => {
     // UI Elements
+    const tapArea = document.getElementById('tapArea');
     const factionIndicator = document.getElementById('factionIndicator');
     const priceValue = document.getElementById('priceValue');
-    const tapButton = document.getElementById('tapButton');
     const timerDisplay = document.getElementById('timer');
     const bullsScoreDisplay = document.querySelector('#bullsScore');
     const bearsScoreDisplay = document.querySelector('#bearsScore');
@@ -12,6 +12,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // State
     let startPrice = 0;
+    let canTap = true; // For tap throttling
     
     // Connection
     const urlParams = new URLSearchParams(window.location.search);
@@ -25,11 +26,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const socket = io({ auth: { token } });
 
-    socket.on('connect', () => socket.emit('joinMatch', { matchId }));
+    // --- Tap Handling ---
+    const handleTap = () => {
+        if (canTap) {
+            socket.emit('playerTap', { matchId });
+            canTap = false;
+            // Throttle taps to prevent spamming
+            setTimeout(() => { canTap = true; }, 100); 
+        }
+    };
+    
+    tapArea.addEventListener('click', handleTap);
+    document.addEventListener('keydown', (event) => {
+        // Check if the key is a single character and not a modifier key
+        if (event.key.length === 1 && !event.ctrlKey && !event.altKey && !event.metaKey) {
+            handleTap();
+        }
+    });
 
-    tapButton.addEventListener('click', () => socket.emit('playerTap', { matchId }) );
+    // --- Socket Event Listeners ---
+    socket.on('connect', () => socket.emit('joinMatch', { matchId }) );
 
-    // Event Listeners
     socket.on('matchJoined', (data) => {
         factionIndicator.textContent = `FACTION: ${data.faction}`;
         startPrice = parseFloat(data.start_price);
@@ -41,11 +58,8 @@ document.addEventListener('DOMContentLoaded', () => {
         bearsScoreDisplay.textContent = `BEARS: ${data.bearTaps || 0}`;
 
         const priceChange = data.newPrice - startPrice;
-        // Let's say a full bar represents a +/- 25 point swing
-        const maxPriceSwing = 25; 
+        const maxPriceSwing = 15; // A smaller swing makes the bar more reactive
         const fillPercentage = (priceChange / maxPriceSwing) * 50;
-        
-        // Clamp the values between -50 and 50
         const clampedFill = Math.max(-50, Math.min(50, fillPercentage));
 
         bullsFill.style.height = `${50 + clampedFill}%`;
@@ -59,6 +73,8 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     socket.on('matchEnd', (data) => {
+        tapArea.removeEventListener('click', handleTap); // Disable tapping
+        canTap = false;
         arenaContent.innerHTML = `
             <div class="match-over-screen">
                 <h2>GAME OVER</h2>
