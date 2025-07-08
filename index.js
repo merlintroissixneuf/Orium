@@ -1,45 +1,38 @@
-// index.js
-
+// index.js (Main File)
 require('dotenv').config();
 const express = require('express');
 const bcrypt = require('bcrypt');
+const path = require('path'); // Import the path module
 const { Pool } = require('pg');
 
-// Setup Express app
 const app = express();
-const port = 3000;
-// Middleware to parse JSON bodies
-app.use(express.json());
+const port = process.env.PORT || 3000;
 
-// Create a new pool of connections to the database
+// === MIDDLEWARE ===
+app.use(express.json());
+// Serve static files from the 'public' directory
+app.use(express.static(path.join(__dirname, 'public')));
+
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: {
-    // This is necessary for Render's managed database
     rejectUnauthorized: false
   }
 });
 
-// A simple test route
-app.get('/', (req, res) => {
-  res.send('Orium.fun backend is running!');
-});
 
-// === NEW: User Registration Endpoint ===
+// === API ROUTES ===
 app.post('/api/register', async (req, res) => {
   const { username, email, password } = req.body;
 
-  // 1. Basic Validation
   if (!username || !email || !password) {
     return res.status(400).json({ message: 'Username, email, and password are required.' });
   }
 
   try {
-    // 2. Hash the password
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    // 3. Insert user into the database
     const newUserQuery = `
       INSERT INTO users (username, email, hashed_password) 
       VALUES ($1, $2, $3) 
@@ -48,18 +41,15 @@ app.post('/api/register', async (req, res) => {
     const userResult = await pool.query(newUserQuery, [username, email, hashedPassword]);
     const newUser = userResult.rows[0];
 
-    // 4. Create a wallet for the new user
     await pool.query('INSERT INTO wallets (user_id) VALUES ($1)', [newUser.id]);
 
-    // 5. Send success response
     res.status(201).json({ 
       message: 'User created successfully', 
       user: newUser 
     });
 
   } catch (error) {
-    // Handle potential errors, like a duplicate username/email
-    if (error.code === '23505') { // Unique constraint violation
+    if (error.code === '23505') {
       return res.status(409).json({ message: 'Username or email already exists.' });
     }
     console.error('Error during registration:', error);
@@ -68,6 +58,13 @@ app.post('/api/register', async (req, res) => {
 });
 
 
+// === CATCH-ALL ROUTE ===
+// This route serves your index.html for any request that doesn't match an API route
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+
 app.listen(port, () => {
-  console.log(`🚀 Server listening at http://localhost:${port}`);
+  console.log(`🚀 Server listening on port ${port}`);
 });
