@@ -140,7 +140,7 @@ a:hover { text-decoration: underline; }
     border-color: #FFFFFF;
     padding: 0;
     overflow: hidden;
-    display: flex; /* Use flexbox to center the foreground content */
+    display: flex;
     justify-content: center;
     align-items: center;
 }
@@ -149,15 +149,15 @@ a:hover { text-decoration: underline; }
     left: 0;
     right: 0;
     width: 100%;
-    transition: height 0.2s linear; /* Use linear for smooth battle effect */
+    transition: height 0.2s linear;
     will-change: height;
 }
 #bullsFill {
-    background-color: rgba(0, 255, 0, 0.2);
+    background-color: rgba(0, 255, 0, 0.35); /* Less transparent */
     bottom: 0;
 }
 #bearsFill {
-    background-color: rgba(255, 0, 0, 0.2);
+    background-color: rgba(255, 0, 0, 0.35); /* Less transparent */
     top: 0;
 }
 .arena-foreground {
@@ -165,7 +165,7 @@ a:hover { text-decoration: underline; }
     z-index: 2;
     padding: 2rem;
     width: 100%;
-    backdrop-filter: blur(1px) grayscale(0.5); /* Granulated/static effect */
+    /* The mix-blend-mode was causing issues with transparency, let's remove it for a cleaner look */
 }
 .arena-header {
     display: flex;
@@ -182,7 +182,16 @@ a:hover { text-decoration: underline; }
 }
 .score-box {
     padding: 0.5rem 1rem;
-    border: 2px solid #FFFFFF;
+    border: 2px solid;
+    background-color: rgba(0,0,0,0.5); /* Add a dark background to ensure text readability */
+}
+#bullsScore {
+    border-color: #00FF00;
+    color: #00FF00;
+}
+#bearsScore {
+    border-color: #FF0000;
+    color: #FF0000;
 }
 .chart-container {
     height: 250px;
@@ -195,9 +204,6 @@ a:hover { text-decoration: underline; }
     font-size: 3em;
     color: #FFFFFF;
     text-shadow: 2px 2px #FF0000, 4px 4px #00FF00;
-}
-.price-display #priceTicker {
-    display: none; /* Ticker isn't needed with new score system */
 }
 .controls { text-align: center; }
 #tapButton {
