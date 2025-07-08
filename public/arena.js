@@ -25,13 +25,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const socket = io({ auth: { token } });
 
-    // Check match status on load
-    fetch(`/api/matchmaking/status`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-    }).then(response => response.json()).then(data => {
-        if (data.status !== 'found') window.location.href = '/';
-    }).catch(() => window.location.href = '/');
-
     const handleTap = () => {
         if (canTap) {
             socket.emit('playerTap', { matchId });
@@ -103,7 +96,7 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
         `;
         document.getElementById('lobbyReturnButton').addEventListener('click', () => {
-            window.location.href = '/'; // Ensure token persists
+            window.location.href = '/';
         });
     });
 

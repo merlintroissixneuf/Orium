@@ -67,7 +67,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         playButton.addEventListener('click', async () => {
             if (playButton.textContent === 'Play') {
-                playButton.disabled = true; // Disable button to prevent multiple clicks
+                playButton.disabled = true;
                 mayhemMessage.textContent = 'Joining queue...';
                 mayhemMessage.className = 'success';
                 try {
@@ -80,11 +80,13 @@ document.addEventListener('DOMContentLoaded', () => {
                         mayhemMessage.textContent = 'In queue, waiting...';
                         playButton.textContent = 'Cancel';
                         playButton.style.borderColor = '#FF0000';
+                        playButton.disabled = true; // Disable for 5 seconds
+                        setTimeout(() => { playButton.disabled = false; }, 5000); // Enable after 5s
                         pollingInterval = setInterval(checkMatchmakingStatus, 2000);
                     } else {
                         mayhemMessage.textContent = `Error: ${data.message}`;
                         mayhemMessage.className = 'error';
-                        playButton.disabled = false; // Re-enable button on error
+                        playButton.disabled = false;
                     }
                 } catch (error) {
                     console.error('Error joining queue:', error);
