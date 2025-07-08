@@ -1,4 +1,4 @@
-// index.js (Main File)
+// index.js (with debugging)
 require('dotenv').config();
 const express = require('express');
 const bcrypt = require('bcrypt');
@@ -11,7 +11,6 @@ const { Pool } = require('pg');
 const app = express();
 const port = process.env.PORT || 3000;
 
-// === MIDDLEWARE ===
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -22,21 +21,31 @@ const pool = new Pool({
   }
 });
 
-// === Nodemailer Transporter Setup for Brevo/SMTP ===
+// === Nodemailer Transporter Setup ===
 const transporter = nodemailer.createTransport({
     host: process.env.EMAIL_HOST,
     port: process.env.EMAIL_PORT,
-    secure: process.env.EMAIL_PORT == 465, // Use true for port 465, false for others
+    secure: process.env.EMAIL_PORT == 465,
     auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS
     }
 });
 
+// === NEW: Verify Email Transporter Connection ===
+transporter.verify(function(error, success) {
+  if (error) {
+    console.log("❌ Email Transporter Verification Failed:", error);
+  } else {
+    console.log("✅ Email Transporter is configured correctly and ready to send messages.");
+  }
+});
+
+
 // --- API ROUTES ---
 
-// User Registration
 app.post('/api/register', async (req, res) => {
+    // ... (rest of the code is the same)
     const { username, email, password } = req.body;
     if (!username || !email || !password) return res.status(400).json({ message: 'All fields are required.' });
     try {
@@ -46,16 +55,21 @@ app.post('/api/register', async (req, res) => {
         const newUserQuery = `INSERT INTO users (username, email, hashed_password, verification_token) VALUES ($1, $2, $3, $4) RETURNING id;`;
         await pool.query(newUserQuery, [username, email, hashedPassword, verificationToken]);
         const verificationUrl = `https://${req.headers.host}/api/verify?token=${verificationToken}`;
-        await transporter.sendMail({ from: `"Orium.fun" <${process.env.EMAIL_USER}>`, to: email, subject: 'Verify Your Email Address', html: `<b>Please click the link to verify your email:</b> <a href="${verificationUrl}">${verificationUrl}</a>` });
+        
+        // === NEW: Added Detailed Logging ===
+        console.log("Attempting to send verification email to:", email);
+        const info = await transporter.sendMail({ from: `"Orium.fun" <${process.env.EMAIL_USER}>`, to: email, subject: 'Verify Your Email Address', html: `<b>Please click the link to verify your email:</b> <a href="${verificationUrl}">${verificationUrl}</a>` });
+        console.log("📬 Verification email sent successfully. Message ID:", info.messageId);
+
         res.status(201).json({ message: 'Registration successful! Please check your email to verify your account.' });
     } catch (error) {
         if (error.code === '23505') return res.status(409).json({ message: 'Username or email already exists.' });
-        console.error(error);
+        console.error('Registration and Email Error:', error);
         res.status(500).json({ message: 'Server error.' });
     }
 });
 
-// Email Verification
+// ... (other routes are the same)
 app.get('/api/verify', async (req, res) => {
     const { token } = req.query;
     if (!token) return res.status(400).send('Verification token is missing.');
@@ -72,7 +86,6 @@ app.get('/api/verify', async (req, res) => {
     }
 });
 
-// User Login
 app.post('/api/login', async (req, res) => {
     const { email, password } = req.body;
     if (!email || !password) return res.status(400).json({ message: 'Email and password are required.' });
@@ -91,7 +104,6 @@ app.post('/api/login', async (req, res) => {
     }
 });
 
-// Forgot Password
 app.post('/api/forgot-password', async (req, res) => {
     const { email } = req.body;
     if (!email) return res.status(400).json({ message: 'Email is required.' });
@@ -102,57 +114,41 @@ app.post('/api/forgot-password', async (req, res) => {
         if (!user) {
             return res.json({ message: 'If a user with that email exists, a password reset link has been sent.' });
         }
-
         const resetToken = crypto.randomBytes(32).toString('hex');
-        const expires = new Date(Date.now() + 3600000); // 1 hour from now
-
+        const expires = new Date(Date.now() + 3600000); // 1 hour
         await pool.query('UPDATE users SET password_reset_token = $1, password_reset_expires = $2 WHERE email = $3', [resetToken, expires, email]);
-
         const resetUrl = `https://${req.headers.host}/reset-password.html?token=${resetToken}`;
-        await transporter.sendMail({
-            from: `"Orium.fun" <${process.env.EMAIL_USER}>`,
-            to: email,
-            subject: 'Password Reset Request',
-            html: `<b>You requested a password reset. Click the link to set a new password:</b> <a href="${resetUrl}">${resetUrl}</a>`
-        });
+
+        // === NEW: Added Detailed Logging ===
+        console.log("Attempting to send password reset email to:", email);
+        const info = await transporter.sendMail({ from: `"Orium.fun" <${process.env.EMAIL_USER}>`, to: email, subject: 'Password Reset Request', html: `<b>You requested a password reset. Click the link to set a new password:</b> <a href="${resetUrl}">${resetUrl}</a>` });
+        console.log("📬 Password reset email sent successfully. Message ID:", info.messageId);
 
         res.json({ message: 'If a user with that email exists, a password reset link has been sent.' });
 
     } catch (error) {
-        console.error(error);
+        console.error('Forgot Password and Email Error:', error);
         res.status(500).json({ message: 'Server error.' });
     }
 });
 
-// Reset Password
 app.post('/api/reset-password', async (req, res) => {
     const { token, password } = req.body;
-    if (!token || !password) {
-        return res.status(400).json({ message: 'Token and new password are required.' });
-    }
-
+    if (!token || !password) return res.status(400).json({ message: 'Token and new password are required.' });
     try {
         const { rows } = await pool.query('SELECT * FROM users WHERE password_reset_token = $1 AND password_reset_expires > NOW()', [token]);
         const user = rows[0];
-
-        if (!user) {
-            return res.status(400).json({ message: 'Password reset token is invalid or has expired.' });
-        }
-
+        if (!user) return res.status(400).json({ message: 'Password reset token is invalid or has expired.' });
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);
-
         await pool.query('UPDATE users SET hashed_password = $1, password_reset_token = NULL, password_reset_expires = NULL WHERE id = $2', [hashedPassword, user.id]);
-
         res.json({ message: 'Password has been reset successfully.' });
-
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Server error.' });
     }
 });
 
-// --- CATCH-ALL ROUTE ---
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
