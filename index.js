@@ -208,7 +208,6 @@ const createMatch = async (players, realPlayersInQueue) => {
                 const { current_price, start_price } = endPriceRes.rows[0];
                 const winningFaction = current_price > start_price ? 'BULLS' : 'BEARS';
                 await pool.query('UPDATE matches SET status = $1, winning_faction = $2 WHERE id = $3', ['completed', winningFaction, matchId]);
-                // Fetch leaderboard data
                 const leaderboardQuery = `
                     SELECT u.username, mp.tap_count
                     FROM match_players mp
@@ -218,7 +217,6 @@ const createMatch = async (players, realPlayersInQueue) => {
                 `;
                 const leaderboardResult = await pool.query(leaderboardQuery, [matchId]);
                 const leaderboard = leaderboardResult.rows;
-                // Clear activeMatchStatus for all players in the match
                 const playerIds = await pool.query('SELECT user_id FROM match_players WHERE match_id = $1', [matchId]);
                 playerIds.rows.forEach(({ user_id }) => activeMatchStatus.delete(user_id));
                 console.log(`Cleared activeMatchStatus for match ${matchId}`);

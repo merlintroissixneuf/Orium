@@ -38,14 +38,9 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     
     tapArea.addEventListener('click', handleTap);
-    document.addEventListener('keydown', (event) => {
-        if (event.key.length === 1 && !event.ctrlKey && !event.altKey && !event.metaKey) {
-            handleTap();
-        }
-    });
 
     // --- Socket Event Listeners ---
-    socket.on('connect', () => socket.emit('joinMatch', { matchId }) );
+    socket.on('connect', () => socket.emit('joinMatch', { matchId}) );
 
     socket.on('matchJoined', (data) => {
         factionIndicator.textContent = `FACTION: ${data.faction}`;
@@ -73,10 +68,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const maxFontSize = 2.0; // em
         const bullFontSize = bullTaps > bearTaps 
             ? minFontSize + (maxFontSize - minFontSize) * (bullTaps / maxTaps)
-            : minFontSize;
+            : minFontSize + (maxFontSize - minFontSize) * (bearTaps > 0 ? bullTaps / bearTaps : 0);
         const bearFontSize = bearTaps > bullTaps 
             ? minFontSize + (maxFontSize - minFontSize) * (bearTaps / maxTaps)
-            : minFontSize;
+            : minFontSize + (maxFontSize - minFontSize) * (bullTaps > 0 ? bearTaps / bullTaps : 0);
         bullsText.style.fontSize = `${bullFontSize}em`;
         bearsText.style.fontSize = `${bearFontSize}em`;
     });
@@ -90,6 +85,8 @@ document.addEventListener('DOMContentLoaded', () => {
     socket.on('matchEnd', (data) => {
         tapArea.removeEventListener('click', handleTap);
         canTap = false;
+        bullsText.style.display = 'none'; // Hide text on match end
+        bearsText.style.display = 'none';
         const leaderboardHTML = data.leaderboard.map(player => 
             `<div class="leaderboard-entry">${player.username}: ${player.tap_count} taps</div>`
         ).join('');

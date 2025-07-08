@@ -172,6 +172,7 @@ a:hover { text-decoration: underline; }
     width: 100%;
     z-index: 1;
     pointer-events: none;
+    transition: font-size 0.2s linear;
 }
 #bullsText {
     bottom: 10px;
