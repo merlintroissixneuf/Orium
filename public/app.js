@@ -1,40 +1,75 @@
 // public/app.js
 document.addEventListener('DOMContentLoaded', () => {
+    // Views
+    const loginView = document.getElementById('loginView');
+    const registerView = document.getElementById('registerView');
+
+    // Forms
+    const loginForm = document.getElementById('loginForm');
     const registerForm = document.getElementById('registerForm');
+    
+    // Links
+    const showRegister = document.getElementById('showRegister');
+    const showLogin = document.getElementById('showLogin');
+
+    // Message Div
     const messageDiv = document.getElementById('message');
 
-    registerForm.addEventListener('submit', async (event) => {
-        event.preventDefault(); // Prevent page reload
-
-        const username = document.getElementById('username').value;
-        const email = document.getElementById('email').value;
-        const password = document.getElementById('password').value;
-
+    // View Toggling
+    showRegister.addEventListener('click', () => {
+        loginView.classList.add('hidden');
+        registerView.classList.remove('hidden');
         messageDiv.textContent = '';
-        messageDiv.className = '';
+    });
 
-        try {
-            const response = await fetch('/api/register', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ username, email, password }),
-            });
+    showLogin.addEventListener('click', () => {
+        registerView.classList.add('hidden');
+        loginView.classList.remove('hidden');
+        messageDiv.textContent = '';
+    });
 
-            const data = await response.json();
+    // Register Form Submission
+    registerForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const username = document.getElementById('registerUsername').value;
+        const email = document.getElementById('registerEmail').value;
+        const password = document.getElementById('registerPassword').value;
+        
+        const response = await fetch('/api/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, email, password }),
+        });
+        const data = await response.json();
+        if (response.ok) {
+            messageDiv.textContent = 'Success! You can now log in.';
+            messageDiv.className = 'success';
+            showLogin.click(); // Switch to login view
+        } else {
+            messageDiv.textContent = 'Error: ' + data.message;
+            messageDiv.className = 'error';
+        }
+    });
 
-            if (response.ok) {
-                messageDiv.textContent = 'Success! ' + data.message;
-                messageDiv.classList.add('success');
-                registerForm.reset();
-            } else {
-                messageDiv.textContent = 'Error: ' + data.message;
-                messageDiv.classList.add('error');
-            }
-        } catch (error) {
-            messageDiv.textContent = 'A network error occurred.';
-            messageDiv.classList.add('error');
+    // Login Form Submission
+    loginForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const email = document.getElementById('loginEmail').value;
+        const password = document.getElementById('loginPassword').value;
+
+        const response = await fetch('/api/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password }),
+        });
+        const data = await response.json();
+        if (response.ok) {
+            // Store the token and update UI
+            localStorage.setItem('authToken', data.token);
+            document.querySelector('.container').innerHTML = `<h2>Welcome!</h2><p>You are logged in.</p>`;
+        } else {
+            messageDiv.textContent = 'Error: ' + data.message;
+            messageDiv.className = 'error';
         }
     });
 });
