@@ -1,4 +1,4 @@
-// index.js with route logging
+// index.js
 require('dotenv').config();
 const express = require('express');
 const bcrypt = require('bcrypt');
@@ -21,22 +21,19 @@ const pool = new Pool({
   }
 });
 
-const transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS
-    }
-});
-
+// --- Server-side State ---
 const matchmakingQueue = [];
+const activeMatchStatus = new Map(); // Stores the status for players, e.g., { userId: 'waiting' | { matchId: 123 } }
 const MATCH_SIZE = 10;
+const MATCHMAKING_TIMEOUT = 10000; // 10 seconds
 
+let matchmakingTimer = null;
+
+// --- Middleware ---
 const verifyToken = (req, res, next) => {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
     if (!token) return res.sendStatus(401);
-
     jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
         if (err) return res.sendStatus(403);
         req.user = user;
@@ -44,8 +41,111 @@ const verifyToken = (req, res, next) => {
     });
 };
 
+// --- Helper Functions ---
+const createMatch = async (players) => {
+    console.log('Creating match for players:', players.map(p => p.userId));
+    try {
+        // Step 1: Create the match entry
+        const end_time = new Date(Date.now() + 3 * 60000); // 3 minutes from now
+        const matchQuery = `
+            INSERT INTO matches (start_price, current_price, status, end_time)
+            VALUES (100.00, 100.00, 'active', $1)
+            RETURNING id;
+        `;
+        const matchResult = await pool.query(matchQuery, [end_time]);
+        const matchId = matchResult.rows[0].id;
+        console.log(`Match ${matchId} created in the database.`);
+
+        // Step 2: Assign factions and insert players
+        const shuffledPlayers = players.sort(() => 0.5 - Math.random());
+        const bullCount = Math.ceil(shuffledPlayers.length / 2);
+
+        const playerInsertPromises = shuffledPlayers.map((player, index) => {
+            const faction = index < bullCount ? 'BULLS' : 'BEARS';
+            const playerQuery = `
+                INSERT INTO match_players (match_id, user_id, faction, tap_count)
+                VALUES ($1, $2, $3, 0);
+            `;
+            return pool.query(playerQuery, [matchId, player.userId, faction]);
+        });
+
+        await Promise.all(playerInsertPromises);
+        console.log(`All players for match ${matchId} have been inserted.`);
+
+        // Step 3: Update the status for all real players in this match
+        players.forEach(player => {
+            // Bots will have negative IDs, so we only update for real players
+            if(player.userId > 0) {
+                activeMatchStatus.set(player.userId, { status: 'found', matchId: matchId });
+            }
+        });
+
+    } catch (error) {
+        console.error('Error creating match:', error);
+    }
+};
+
+
 // --- API ROUTES ---
 
+// ... (Existing auth routes are unchanged, only showing matchmaking here)
+app.post('/api/matchmaking/join', verifyToken, async (req, res) => {
+    const userId = req.user.userId;
+
+    if (matchmakingQueue.find(p => p.userId === userId) || activeMatchStatus.has(userId)) {
+        return res.status(409).json({ message: 'You are already in queue or in a match.' });
+    }
+
+    matchmakingQueue.push({ userId });
+    activeMatchStatus.set(userId, { status: 'waiting' });
+    console.log(`User ${userId} joined queue. Size: ${matchmakingQueue.length}`);
+
+    // If the queue is now full with real players
+    if (matchmakingQueue.length >= MATCH_SIZE) {
+        clearTimeout(matchmakingTimer);
+        matchmakingTimer = null;
+        const playersToStart = matchmakingQueue.splice(0, MATCH_SIZE);
+        await createMatch(playersToStart);
+    } 
+    // If this is the first player, start the timeout
+    else if (matchmakingQueue.length === 1) {
+        matchmakingTimer = setTimeout(async () => {
+            console.log('Matchmaking timeout reached. Filling with bots.');
+            const spotsToFill = MATCH_SIZE - matchmakingQueue.length;
+            
+            // Get bot IDs from the database
+            const botQuery = `SELECT id FROM users WHERE username LIKE 'bot%' LIMIT $1;`;
+            const { rows } = await pool.query(botQuery, [spotsToFill]);
+            const botPlayers = rows.map(bot => ({ userId: bot.id }));
+
+            const playersToStart = [...matchmakingQueue];
+            playersToStart.push(...botPlayers);
+            
+            matchmakingQueue.length = 0; // Clear the queue
+            await createMatch(playersToStart);
+            matchmakingTimer = null;
+
+        }, MATCHMAKING_TIMEOUT);
+    }
+
+    res.json({ message: 'You have joined the queue.' });
+});
+
+app.get('/api/matchmaking/status', verifyToken, (req, res) => {
+    const userId = req.user.userId;
+    const userStatus = activeMatchStatus.get(userId);
+
+    if (userStatus && userStatus.status === 'found') {
+        res.json(userStatus);
+        // Clean up the status map once the user has been notified
+        activeMatchStatus.delete(userId);
+    } else {
+        res.json({ status: 'waiting' });
+    }
+});
+
+
+// ... (All other routes like login, register, /api/user/me etc. go here)
 app.post('/api/register', async (req, res) => {
     const { username, email, password } = req.body;
     if (!username || !email || !password) return res.status(400).json({ message: 'All fields are required.' });
@@ -130,20 +230,6 @@ app.post('/api/reset-password', async (req, res) => {
         res.status(500).json({ message: 'Server error.' });
     }
 });
-app.post('/api/matchmaking/join', verifyToken, async (req, res) => {
-    const userId = req.user.userId;
-    if (matchmakingQueue.find(p => p.userId === userId)) {
-        return res.status(409).json({ message: 'You are already in the queue.' });
-    }
-    matchmakingQueue.push({ userId });
-    console.log(`User ${userId} joined the queue. Current queue size: ${matchmakingQueue.length}`);
-    if (matchmakingQueue.length >= MATCH_SIZE) {
-        console.log(`MATCH FOUND! Players: ${matchmakingQueue.map(p => p.userId).join(', ')}`);
-        matchmakingQueue.length = 0;
-        return res.json({ message: 'Match found! Get ready to play.' });
-    }
-    res.json({ message: `You have joined the queue. Waiting for ${MATCH_SIZE - matchmakingQueue.length} more players.` });
-});
 app.get('/api/user/me', verifyToken, async (req, res) => {
     try {
         const query = `
@@ -170,19 +256,12 @@ app.get('/api/user/me', verifyToken, async (req, res) => {
     }
 });
 
+
 // --- CATCH-ALL ROUTE ---
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 app.listen(port, () => {
-    console.log(`🚀 Server listening on port ${port}`);
-
-    // ### NEW DEBUGGING CODE ###
-    console.log("\n--- Registered Routes ---");
-    const routes = app._router.stack
-        .filter(r => r.route)
-        .map(r => `${Object.keys(r.route.methods)[0].toUpperCase().padEnd(7)} ${r.route.path}`);
-    console.log(routes.join("\n"));
-    console.log("-----------------------\n");
+  console.log(`🚀 Server listening on port ${port}`);
 });

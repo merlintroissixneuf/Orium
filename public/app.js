@@ -1,19 +1,17 @@
 document.addEventListener('DOMContentLoaded', () => {
     const mainContainer = document.querySelector('.container');
+    let pollingInterval = null;
 
     const fetchAndRenderLobby = async () => {
         const token = localStorage.getItem('authToken'); 
-        
         if (!token) {
             renderLoginView();
             return;
         }
-
         try {
             const response = await fetch('/api/user/me', {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
-
             if (response.ok) {
                 const userData = await response.json();
                 renderLobbyView(userData);
@@ -55,16 +53,15 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
         `;
 
-        // Logout Button Logic
         document.getElementById('logoutButton').addEventListener('click', () => {
             localStorage.removeItem('authToken');
-            fetchAndRenderLobby(); // This will now call renderLoginView
+            if (pollingInterval) clearInterval(pollingInterval);
+            fetchAndRenderLobby();
         });
 
-        // Matchmaking Button Logic
         document.getElementById('playMayhemButton').addEventListener('click', async () => {
             const mayhemMessage = document.getElementById('mayhemMessage');
-            mayhemMessage.textContent = 'Finding a match...';
+            mayhemMessage.textContent = 'Joining queue...';
             mayhemMessage.className = 'success';
 
             const response = await fetch('/api/matchmaking/join', {
@@ -74,67 +71,63 @@ document.addEventListener('DOMContentLoaded', () => {
                     'Authorization': `Bearer ${localStorage.getItem('authToken')}`
                 }
             });
-            const data = await response.json();
+            
             if(response.ok) {
-                mayhemMessage.textContent = data.message;
+                mayhemMessage.textContent = 'In queue, waiting for players...';
+                // Start polling for status
+                pollingInterval = setInterval(checkMatchmakingStatus, 2000); // Check every 2 seconds
             } else {
+                const data = await response.json();
                 mayhemMessage.textContent = 'Error: ' + data.message;
                 mayhemMessage.className = 'error';
             }
         });
     };
+
+    const checkMatchmakingStatus = async () => {
+        try {
+            const response = await fetch('/api/matchmaking/status', {
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+                }
+            });
+            const data = await response.json();
+
+            if (data.status === 'found') {
+                console.log('Match found!', data);
+                clearInterval(pollingInterval);
+                pollingInterval = null;
+                // Transition to the Arena screen
+                mainContainer.innerHTML = `<h2>Match Found!</h2><p>Entering Arena for Match #${data.matchId}...</p>`;
+            } else {
+                // Still waiting, do nothing or update a "..." counter
+                console.log('Still waiting for a match...');
+            }
+        } catch(error) {
+            console.error('Error polling for match status:', error);
+            clearInterval(pollingInterval);
+            pollingInterval = null;
+        }
+    };
     
     const renderLoginView = () => {
-        mainContainer.innerHTML = `
-            <h2>Login</h2>
-            <form id="loginForm">
-                <input type="email" id="loginEmail" placeholder="Email" required>
-                <input type="password" id="loginPassword" placeholder="Password" required>
-                <button type="submit">Login</button>
-            </form>
-            <div class="toggle-link"><a id="showForgotPassword">Forgot Password?</a></div>
-            <div class="toggle-link">Don't have an account? <a id="showRegister">Register here</a></div>
-            <div id="message"></div>
-        `;
-        // We re-add the forms and their listeners only when needed
+        // ... (This function remains exactly the same)
+        mainContainer.innerHTML = `<h2>Login</h2><form id="loginForm"><input type="email" id="loginEmail" placeholder="Email" required><input type="password" id="loginPassword" placeholder="Password" required><button type="submit">Login</button></form><div class="toggle-link"><a id="showForgotPassword">Forgot Password?</a></div><div class="toggle-link">Don't have an account? <a id="showRegister">Register here</a></div><div id="message"></div>`;
         addAuthView();
     };
 
     const addAuthView = () => {
+        // ... (This function remains exactly the same)
         const existingContainer = document.querySelector('.container');
-        const authHTML = `
-            <div id="registerView" class="hidden">
-                <h2>Register</h2>
-                <form id="registerForm">
-                    <input type="text" id="registerUsername" placeholder="Username" required>
-                    <input type="email" id="registerEmail" placeholder="Email" required>
-                    <input type="password" id="registerPassword" placeholder="Password" required>
-                    <button type="submit">Create Account</button>
-                </form>
-                <div class="toggle-link">Already have an account? <a id="showLogin">Login here</a></div>
-            </div>
-            <div id="forgotPasswordView" class="hidden">
-                <h2>Forgot Password</h2>
-                <form id="forgotPasswordForm">
-                    <p style="font-size: 0.8em; text-align: center; margin-top: 0;">Enter your email and we'll send you a reset link.</p>
-                    <input type="email" id="forgotEmail" placeholder="Email" required>
-                    <button type="submit">Send Reset Link</button>
-                </form>
-                <div class="toggle-link">Remembered your password? <a id="showLoginFromForgot">Login here</a></div>
-            </div>
-        `;
-        // Insert the extra views without replacing the message div
+        const authHTML = `<div id="registerView" class="hidden"><h2>Register</h2><form id="registerForm"><input type="text" id="registerUsername" placeholder="Username" required><input type="email" id="registerEmail" placeholder="Email" required><input type="password" id="registerPassword" placeholder="Password" required><button type="submit">Create Account</button></form><div class="toggle-link">Already have an account? <a id="showLogin">Login here</a></div></div><div id="forgotPasswordView" class="hidden"><h2>Forgot Password</h2><form id="forgotPasswordForm"><p style="font-size: 0.8em; text-align: center; margin-top: 0;">Enter your email and we'll send you a reset link.</p><input type="email" id="forgotEmail" placeholder="Email" required><button type="submit">Send Reset Link</button></form><div class="toggle-link">Remembered your password? <a id="showLoginFromForgot">Login here</a></div></div>`;
         const messageDiv = document.getElementById('message');
-        if (messageDiv) {
-            messageDiv.insertAdjacentHTML('beforebegin', authHTML);
-        } else {
-            existingContainer.innerHTML += authHTML;
-        }
+        if (messageDiv) { messageDiv.insertAdjacentHTML('beforebegin', authHTML); } else { existingContainer.innerHTML += authHTML; }
         attachAuthFormListeners();
     };
 
 
     const attachAuthFormListeners = () => {
+        // ... (This function remains exactly the same)
         const loginView = document.getElementById('loginView');
         const registerView = document.getElementById('registerView');
         const forgotPasswordView = document.getElementById('forgotPasswordView');
@@ -146,75 +139,43 @@ document.addEventListener('DOMContentLoaded', () => {
         const showForgotPassword = document.getElementById('showForgotPassword');
         const showLoginFromForgot = document.getElementById('showLoginFromForgot');
         const messageDiv = document.getElementById('message');
-
-        const showView = (viewToShow) => {
-            [loginView, registerView, forgotPasswordView].forEach(view => {
-                if (view) view.classList.add('hidden');
-            });
-            if(viewToShow) viewToShow.classList.remove('hidden');
-            if(messageDiv) {
-                messageDiv.textContent = '';
-                messageDiv.className = '';
-            }
-        };
-
+        const showView = (viewToShow) => { [loginView, registerView, forgotPasswordView].forEach(view => { if (view) view.classList.add('hidden'); }); if(viewToShow) viewToShow.classList.remove('hidden'); if(messageDiv) { messageDiv.textContent = ''; messageDiv.className = ''; } };
         if(showRegister) showRegister.addEventListener('click', () => showView(registerView));
         if(showLogin) showLogin.addEventListener('click', () => showView(loginView));
         if(showForgotPassword) showForgotPassword.addEventListener('click', () => showView(forgotPasswordView));
         if(showLoginFromForgot) showLoginFromForgot.addEventListener('click', () => showView(loginView));
-
         if(registerForm) registerForm.addEventListener('submit', async (event) => {
             event.preventDefault();
             const username = document.getElementById('registerUsername').value;
             const email = document.getElementById('registerEmail').value;
             const password = document.getElementById('registerPassword').value;
-            const response = await fetch('/api/register', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, email, password }),
-            });
+            const response = await fetch('/api/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, email, password }), });
             const data = await response.json();
             messageDiv.textContent = data.message;
             messageDiv.className = response.ok ? 'success' : 'error';
             if (response.ok) registerForm.reset();
         });
-
         if(loginForm) loginForm.addEventListener('submit', async (event) => {
             event.preventDefault();
             const email = document.getElementById('loginEmail').value;
             const password = document.getElementById('loginPassword').value;
-            const response = await fetch('/api/login', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, password }),
-            });
+            const response = await fetch('/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }), });
             const data = await response.json();
-            if (response.ok) {
-                localStorage.setItem('authToken', data.token);
-                fetchAndRenderLobby();
-            } else {
-                messageDiv.textContent = 'Error: ' + data.message;
-                messageDiv.className = 'error';
-            }
+            if (response.ok) { localStorage.setItem('authToken', data.token); fetchAndRenderLobby(); } else { messageDiv.textContent = 'Error: ' + data.message; messageDiv.className = 'error'; }
         });
-
         if(forgotPasswordForm) forgotPasswordForm.addEventListener('submit', async (event) => {
             event.preventDefault();
             const email = document.getElementById('forgotEmail').value;
-            const response = await fetch('/api/forgot-password', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email }),
-            });
+            const response = await fetch('/api/forgot-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }), });
             const data = await response.json();
             messageDiv.textContent = data.message;
             messageDiv.className = response.ok ? 'success' : 'error';
         });
     };
 
-    // Initial page load check
-    if (document.getElementById('loginView')) {
-        attachAuthFormListeners();
+    if (document.querySelector('h2').textContent === 'Login') {
+       addAuthView();
+       attachAuthFormListeners();
     } else {
        fetchAndRenderLobby();
     }
