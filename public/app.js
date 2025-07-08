@@ -74,8 +74,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
             if(response.ok) {
                 mayhemMessage.textContent = 'In queue, waiting for players...';
-                // Start polling for status
-                pollingInterval = setInterval(checkMatchmakingStatus, 2000); // Check every 2 seconds
+                pollingInterval = setInterval(checkMatchmakingStatus, 2000);
             } else {
                 const data = await response.json();
                 mayhemMessage.textContent = 'Error: ' + data.message;
@@ -97,10 +96,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.log('Match found!', data);
                 clearInterval(pollingInterval);
                 pollingInterval = null;
-                // Transition to the Arena screen
                 mainContainer.innerHTML = `<h2>Match Found!</h2><p>Entering Arena for Match #${data.matchId}...</p>`;
             } else {
-                // Still waiting, do nothing or update a "..." counter
                 console.log('Still waiting for a match...');
             }
         } catch(error) {
@@ -111,23 +108,45 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     
     const renderLoginView = () => {
-        // ... (This function remains exactly the same)
-        mainContainer.innerHTML = `<h2>Login</h2><form id="loginForm"><input type="email" id="loginEmail" placeholder="Email" required><input type="password" id="loginPassword" placeholder="Password" required><button type="submit">Login</button></form><div class="toggle-link"><a id="showForgotPassword">Forgot Password?</a></div><div class="toggle-link">Don't have an account? <a id="showRegister">Register here</a></div><div id="message"></div>`;
-        addAuthView();
-    };
+        mainContainer.innerHTML = `
+            <div id="loginView">
+                <h2>Login</h2>
+                <form id="loginForm">
+                    <input type="email" id="loginEmail" placeholder="Email" required>
+                    <input type="password" id="loginPassword" placeholder="Password" required>
+                    <button type="submit">Login</button>
+                </form>
+                <div class="toggle-link"><a id="showForgotPassword">Forgot Password?</a></div>
+                <div class="toggle-link">Don't have an account? <a id="showRegister">Register here</a></div>
+            </div>
 
-    const addAuthView = () => {
-        // ... (This function remains exactly the same)
-        const existingContainer = document.querySelector('.container');
-        const authHTML = `<div id="registerView" class="hidden"><h2>Register</h2><form id="registerForm"><input type="text" id="registerUsername" placeholder="Username" required><input type="email" id="registerEmail" placeholder="Email" required><input type="password" id="registerPassword" placeholder="Password" required><button type="submit">Create Account</button></form><div class="toggle-link">Already have an account? <a id="showLogin">Login here</a></div></div><div id="forgotPasswordView" class="hidden"><h2>Forgot Password</h2><form id="forgotPasswordForm"><p style="font-size: 0.8em; text-align: center; margin-top: 0;">Enter your email and we'll send you a reset link.</p><input type="email" id="forgotEmail" placeholder="Email" required><button type="submit">Send Reset Link</button></form><div class="toggle-link">Remembered your password? <a id="showLoginFromForgot">Login here</a></div></div>`;
-        const messageDiv = document.getElementById('message');
-        if (messageDiv) { messageDiv.insertAdjacentHTML('beforebegin', authHTML); } else { existingContainer.innerHTML += authHTML; }
+            <div id="registerView" class="hidden">
+                <h2>Register</h2>
+                <form id="registerForm">
+                    <input type="text" id="registerUsername" placeholder="Username" required>
+                    <input type="email" id="registerEmail" placeholder="Email" required>
+                    <input type="password" id="registerPassword" placeholder="Password" required>
+                    <button type="submit">Create Account</button>
+                </form>
+                <div class="toggle-link">Already have an account? <a id="showLogin">Login here</a></div>
+            </div>
+
+            <div id="forgotPasswordView" class="hidden">
+                <h2>Forgot Password</h2>
+                <form id="forgotPasswordForm">
+                    <p style="font-size: 0.8em; text-align: center; margin-top: 0;">Enter your email and we'll send you a reset link.</p>
+                    <input type="email" id="forgotEmail" placeholder="Email" required>
+                    <button type="submit">Send Reset Link</button>
+                </form>
+                <div class="toggle-link">Remembered your password? <a id="showLoginFromForgot">Login here</a></div>
+            </div>
+
+            <div id="message"></div>
+        `;
         attachAuthFormListeners();
     };
 
-
     const attachAuthFormListeners = () => {
-        // ... (This function remains exactly the same)
         const loginView = document.getElementById('loginView');
         const registerView = document.getElementById('registerView');
         const forgotPasswordView = document.getElementById('forgotPasswordView');
@@ -139,11 +158,23 @@ document.addEventListener('DOMContentLoaded', () => {
         const showForgotPassword = document.getElementById('showForgotPassword');
         const showLoginFromForgot = document.getElementById('showLoginFromForgot');
         const messageDiv = document.getElementById('message');
-        const showView = (viewToShow) => { [loginView, registerView, forgotPasswordView].forEach(view => { if (view) view.classList.add('hidden'); }); if(viewToShow) viewToShow.classList.remove('hidden'); if(messageDiv) { messageDiv.textContent = ''; messageDiv.className = ''; } };
+
+        const showView = (viewToShow) => {
+            [loginView, registerView, forgotPasswordView].forEach(view => {
+                if (view) view.classList.add('hidden');
+            });
+            if(viewToShow) viewToShow.classList.remove('hidden');
+            if(messageDiv) {
+                messageDiv.textContent = '';
+                messageDiv.className = '';
+            }
+        };
+
         if(showRegister) showRegister.addEventListener('click', () => showView(registerView));
         if(showLogin) showLogin.addEventListener('click', () => showView(loginView));
         if(showForgotPassword) showForgotPassword.addEventListener('click', () => showView(forgotPasswordView));
         if(showLoginFromForgot) showLoginFromForgot.addEventListener('click', () => showView(loginView));
+
         if(registerForm) registerForm.addEventListener('submit', async (event) => {
             event.preventDefault();
             const username = document.getElementById('registerUsername').value;
@@ -155,14 +186,22 @@ document.addEventListener('DOMContentLoaded', () => {
             messageDiv.className = response.ok ? 'success' : 'error';
             if (response.ok) registerForm.reset();
         });
+
         if(loginForm) loginForm.addEventListener('submit', async (event) => {
             event.preventDefault();
             const email = document.getElementById('loginEmail').value;
             const password = document.getElementById('loginPassword').value;
             const response = await fetch('/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }), });
             const data = await response.json();
-            if (response.ok) { localStorage.setItem('authToken', data.token); fetchAndRenderLobby(); } else { messageDiv.textContent = 'Error: ' + data.message; messageDiv.className = 'error'; }
+            if (response.ok) {
+                localStorage.setItem('authToken', data.token);
+                fetchAndRenderLobby();
+            } else {
+                messageDiv.textContent = 'Error: ' + data.message;
+                messageDiv.className = 'error';
+            }
         });
+
         if(forgotPasswordForm) forgotPasswordForm.addEventListener('submit', async (event) => {
             event.preventDefault();
             const email = document.getElementById('forgotEmail').value;
@@ -173,10 +212,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     };
 
-    if (document.querySelector('h2').textContent === 'Login') {
-       addAuthView();
-       attachAuthFormListeners();
-    } else {
-       fetchAndRenderLobby();
-    }
+    // --- CORRECTED INITIAL LOAD ---
+    // This single function call correctly determines what to show on page load.
+    fetchAndRenderLobby();
 });
