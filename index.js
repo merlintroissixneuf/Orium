@@ -1,4 +1,3 @@
-// index.js (Final version with bot tapping fix)
 require('dotenv').config();
 const express = require('express');
 const http = require('http');
@@ -6,6 +5,8 @@ const { Server } = require("socket.io");
 const bcrypt = require('bcrypt');
 const path = require('path');
 const jwt = require('jsonwebtoken');
+const nodemailer = require('nodemailer'); // This line was missing
+const crypto = require('crypto');
 const { Pool } = require('pg');
 
 const app = express();
@@ -24,7 +25,15 @@ const pool = new Pool({
   }
 });
 
-// --- Server-side State & Config ---
+const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
+    }
+});
+
+// --- Server-side State ---
 const matchmakingQueue = [];
 const activeMatchStatus = new Map();
 const activeMatchTimers = new Map();
@@ -65,6 +74,7 @@ const handleTap = async (matchId, userId, faction) => {
         const pressure = faction === 'BULLS' ? 0.01 : -0.01;
         const priceResult = await client.query('UPDATE matches SET current_price = current_price + $1 WHERE id = $2 RETURNING current_price', [pressure, matchId]);
         const newPrice = priceResult.rows[0].current_price;
+        
         const factionTapsQuery = `
             SELECT 
                 SUM(CASE WHEN faction = 'BULLS' THEN tap_count ELSE 0 END) as bull_taps,
@@ -73,6 +83,7 @@ const handleTap = async (matchId, userId, faction) => {
         `;
         const factionTapsResult = await client.query(factionTapsQuery, [matchId]);
         await client.query('COMMIT');
+        
         const { bull_taps, bear_taps } = factionTapsResult.rows[0];
         io.to(matchId.toString()).emit('gameStateUpdate', { newPrice, bullTaps: bull_taps || 0, bearTaps: bear_taps || 0 });
     } catch (e) {
@@ -88,6 +99,7 @@ const createMatch = async (players, realPlayersInQueue) => {
         const startTime = new Date();
         const endTime = new Date(startTime.getTime() + MATCH_DURATION_SECONDS * 1000);
         const startPrice = 0.00;
+
         const matchQuery = `INSERT INTO matches (start_price, current_price, status, start_time, end_time) VALUES ($1, $1, 'active', $2, $3) RETURNING id;`;
         const matchResult = await pool.query(matchQuery, [startPrice, startTime, endTime]);
         const matchId = matchResult.rows[0].id;
@@ -105,12 +117,12 @@ const createMatch = async (players, realPlayersInQueue) => {
         const matchBotIntervals = [];
         bots.forEach(bot => {
             const interval = setInterval(() => {
-                console.log(`Bot ${bot.userId} (Faction: ${bot.faction}) is tapping.`); // Added logging
+                console.log(`Bot ${bot.userId} (Faction: ${bot.faction}) is tapping.`);
                 handleTap(matchId, bot.userId, bot.faction);
             }, 2000 + Math.random() * 3000);
             matchBotIntervals.push(interval);
         });
-        if(matchBotIntervals.length > 0) botIntervals.set(matchId, matchBotIntervals);
+        if (matchBotIntervals.length > 0) botIntervals.set(matchId, matchBotIntervals);
 
         let remainingTime = MATCH_DURATION_SECONDS;
         const matchTimer = setInterval(async () => {
@@ -127,6 +139,7 @@ const createMatch = async (players, realPlayersInQueue) => {
                 const { current_price, start_price } = endPriceRes.rows[0];
                 const winningFaction = current_price > start_price ? 'BULLS' : 'BEARS';
                 await pool.query('UPDATE matches SET status = $1, winning_faction = $2 WHERE id = $3', ['completed', winningFaction, matchId]);
+
                 io.to(matchId.toString()).emit('matchEnd', { message: 'Match Over!', winningFaction });
                 console.log(`Match ${matchId} has ended. Winner: ${winningFaction}`);
             }
@@ -141,9 +154,7 @@ const createMatch = async (players, realPlayersInQueue) => {
     }
 };
 
-// --- Socket.IO & API Routes ---
-// (The rest of the file is unchanged, but provided for completeness)
-const transporter = nodemailer.createTransport({ service: 'gmail', auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS }});
+// --- Socket.IO Logic ---
 io.use(socketAuthMiddleware);
 io.on('connection', (socket) => {
     console.log(`User connected: ${socket.user.username}`);
@@ -170,6 +181,8 @@ io.on('connection', (socket) => {
     });
     socket.on('disconnect', () => console.log(`User disconnected: ${socket.user.username}`));
 });
+
+// --- API ROUTES ---
 app.post('/api/register', async (req, res) => {
     const { username, email, password } = req.body;
     if (!username || !email || !password) return res.status(400).json({ message: 'All fields are required.' });
@@ -330,6 +343,7 @@ app.post('/api/matchmaking/leave', verifyToken, (req, res) => {
     }
 });
 
+// --- CATCH-ALL & SERVER START ---
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
