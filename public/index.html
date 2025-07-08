@@ -28,6 +28,9 @@
                 <button type="submit">Login</button>
             </form>
             <div class="toggle-link">
+                <a id="showForgotPassword">Forgot Password?</a>
+            </div>
+            <div class="toggle-link">
                 Don't have an account? <a id="showRegister">Register here</a>
             </div>
         </div>
@@ -42,6 +45,18 @@
             </form>
             <div class="toggle-link">
                 Already have an account? <a id="showLogin">Login here</a>
+            </div>
+        </div>
+
+        <div id="forgotPasswordView" class="hidden">
+            <h2>Forgot Password</h2>
+            <form id="forgotPasswordForm">
+                <p style="font-size: 0.8em; text-align: center; margin-top: 0;">Enter your email and we'll send you a reset link.</p>
+                <input type="email" id="forgotEmail" placeholder="Email" required>
+                <button type="submit">Send Reset Link</button>
+            </form>
+            <div class="toggle-link">
+                Remembered your password? <a id="showLoginFromForgot">Login here</a>
             </div>
         </div>
 
