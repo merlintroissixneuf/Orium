@@ -70,7 +70,7 @@ a:hover { text-decoration: underline; }
 .success { color: #00FF00; }
 .error { color: #FF0000; }
 
-/* --- New Lobby Styles --- */
+/* --- Lobby Styles --- */
 .header {
     display: flex;
     justify-content: space-between;
@@ -79,18 +79,14 @@ a:hover { text-decoration: underline; }
     padding-bottom: 1rem;
     margin-bottom: 2rem;
 }
-
 .user-info .username {
     font-size: 1.2em;
-    color: #FFFFFF;
 }
-
 .user-info .wallet {
     font-size: 0.8em;
     opacity: 0.8;
     margin-top: 0.5rem;
 }
-
 .logout-btn {
     background: none;
     border: 1px solid #FF0000;
@@ -103,41 +99,35 @@ a:hover { text-decoration: underline; }
     background: #FF0000;
     color: #000000;
 }
-
 .game-modes {
     display: flex;
     justify-content: space-between;
     gap: 1.5rem;
     margin-top: 2rem;
 }
-
 .game-tile {
     border: 2px solid #FFFFFF;
     padding: 1.5rem;
-    flex-basis: 48%; /* Each tile takes up almost half the space */
+    flex-basis: 48%;
     text-align: center;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
 }
-
 .game-tile h3 {
     color: #00FF00;
     margin-top: 0;
     font-size: 1em;
 }
-
 .game-tile p {
     font-size: 0.7em;
     margin-bottom: 2rem;
     opacity: 0.8;
     flex-grow: 1;
 }
-
 .game-tile button {
     font-size: 0.8em;
 }
-
 .game-tile button:disabled {
     background-color: #333;
     color: #888;
@@ -145,28 +135,7 @@ a:hover { text-decoration: underline; }
     cursor: not-allowed;
 }
 
-/* --- Mobile Responsiveness --- */
-@media (max-width: 600px) {
-    .container {
-        padding: 1rem;
-        border: none;
-    }
-    .game-modes {
-        flex-direction: column; /* Stack game tiles vertically */
-    }
-    .header {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 1rem;
-    }
-    .user-info .wallet {
-        text-align: left;
-    }
-    .logout-btn {
-        width: 100%;
-    }
-}
-/* --- New Arena Styles --- */
+/* --- Arena Styles --- */
 .arena-container {
     border-color: #FFFFFF;
 }
@@ -183,24 +152,54 @@ a:hover { text-decoration: underline; }
     justify-content: center;
     align-items: center;
     margin: 2rem 0;
-    border: 2px solid #555;
+    /* The ugly border is removed */
 }
 .price-display {
     font-size: 3em;
     color: #FFFFFF;
+    text-shadow: 3px 3px #00FF00;
 }
 .price-display #priceTicker {
     font-size: 0.5em;
     color: #00FF00;
     margin-left: 0.5rem;
+    text-shadow: none;
 }
 .controls {
     text-align: center;
 }
 #tapButton {
     width: 200px;
-    height: 200px;
-    border-radius: 50%;
+    height: 100px; /* Changed from square to rectangle */
     font-size: 2em;
-    border-width: 3px;
+    border: 3px solid #00FF00;
+    /* The ugly roundness is removed */
+}
+#tapButton:active {
+    /* Add a press effect */
+    background-color: #009900 !important;
+    border-color: #FFFFFF !important;
+}
+
+
+/* --- Mobile Responsiveness --- */
+@media (max-width: 600px) {
+    .container {
+        padding: 1rem;
+        border: none;
+    }
+    .game-modes {
+        flex-direction: column;
+    }
+    .header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 1rem;
+    }
+    .user-info .wallet {
+        text-align: left;
+    }
+    .logout-btn {
+        width: 100%;
+    }
 }
