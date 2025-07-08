@@ -40,7 +40,7 @@ const botIntervals = new Map();
 const MATCH_SIZE = 10;
 const MATCHMAKING_TIMEOUT = 10000;
 const MATCH_DURATION_SECONDS = 60;
-const MAX_PRICE_SWING = 15.00; // Matches arena.js maxPriceSwing
+const MAX_PRICE_SWING = 15.00;
 let matchmakingTimer = null;
 
 // Initialize bot users if they don't exist
@@ -175,7 +175,7 @@ const createMatch = async (players, realPlayersInQueue) => {
             const interval = setInterval(() => {
                 console.log(`Bot ${bot.userId} (Faction: ${bot.faction}) is tapping in match ${matchId}.`);
                 handleTap(matchId, bot.userId, bot.faction);
-            }, 200 + Math.random() * 300); // Aggressive tapping: 200–500ms
+            }, 200 + Math.random() * 300);
             matchBotIntervals.push(interval);
         });
         if (matchBotIntervals.length > 0) {
@@ -205,6 +205,10 @@ const createMatch = async (players, realPlayersInQueue) => {
                 const { current_price, start_price } = endPriceRes.rows[0];
                 const winningFaction = current_price > start_price ? 'BULLS' : 'BEARS';
                 await pool.query('UPDATE matches SET status = $1, winning_faction = $2 WHERE id = $3', ['completed', winningFaction, matchId]);
+                // Clear activeMatchStatus for all players in the match
+                const playerIds = await pool.query('SELECT user_id FROM match_players WHERE match_id = $1', [matchId]);
+                playerIds.rows.forEach(({ user_id }) => activeMatchStatus.delete(user_id));
+                console.log(`Cleared activeMatchStatus for match ${matchId}`);
                 io.to(matchId.toString()).emit('matchEnd', { message: 'Match Over!', winningFaction });
                 console.log(`Match ${matchId} has ended. Winner: ${winningFaction}`);
             }
@@ -417,7 +421,10 @@ app.post('/api/matchmaking/leave', verifyToken, (req, res) => {
         }
         return res.json({ message: "You have left the queue." });
     } else {
-        return res.status(404).json({ message: "You were not in the queue." });
+        // Clear activeMatchStatus in case user is stuck
+        activeMatchStatus.delete(userId);
+        console.log(`User ${userId} was not in queue but cleared from activeMatchStatus`);
+        return res.json({ message: "You were not in the queue, but state has been reset." });
     }
 });
 

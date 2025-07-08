@@ -67,33 +67,52 @@ document.addEventListener('DOMContentLoaded', () => {
 
         playButton.addEventListener('click', async () => {
             if (playButton.textContent === 'Play') {
+                playButton.disabled = true; // Disable button to prevent multiple clicks
                 mayhemMessage.textContent = 'Joining queue...';
                 mayhemMessage.className = 'success';
-                const response = await fetch('/api/matchmaking/join', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
-                });
-                if(response.ok) {
-                    mayhemMessage.textContent = 'In queue, waiting...';
-                    playButton.textContent = 'Cancel';
-                    playButton.style.borderColor = '#FF0000';
-                    pollingInterval = setInterval(checkMatchmakingStatus, 2000);
-                } else {
+                try {
+                    const response = await fetch('/api/matchmaking/join', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
+                    });
                     const data = await response.json();
-                    mayhemMessage.textContent = 'Error: ' + data.message;
+                    if (response.ok) {
+                        mayhemMessage.textContent = 'In queue, waiting...';
+                        playButton.textContent = 'Cancel';
+                        playButton.style.borderColor = '#FF0000';
+                        pollingInterval = setInterval(checkMatchmakingStatus, 2000);
+                    } else {
+                        mayhemMessage.textContent = `Error: ${data.message}`;
+                        mayhemMessage.className = 'error';
+                        playButton.disabled = false; // Re-enable button on error
+                    }
+                } catch (error) {
+                    console.error('Error joining queue:', error);
+                    mayhemMessage.textContent = 'Error: Failed to join queue.';
                     mayhemMessage.className = 'error';
+                    playButton.disabled = false;
                 }
             } else {
+                playButton.disabled = true;
                 mayhemMessage.textContent = 'Leaving queue...';
-                await fetch('/api/matchmaking/leave', {
-                    method: 'POST',
-                    headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
-                });
-                clearInterval(pollingInterval);
-                pollingInterval = null;
-                mayhemMessage.textContent = "You have left the queue.";
-                playButton.textContent = 'Play';
-                playButton.style.borderColor = '#00FF00';
+                try {
+                    await fetch('/api/matchmaking/leave', {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
+                    });
+                    clearInterval(pollingInterval);
+                    pollingInterval = null;
+                    mayhemMessage.textContent = 'You have left the queue.';
+                    mayhemMessage.className = '';
+                    playButton.textContent = 'Play';
+                    playButton.style.borderColor = '#00FF00';
+                    playButton.disabled = false;
+                } catch (error) {
+                    console.error('Error leaving queue:', error);
+                    mayhemMessage.textContent = 'Error: Failed to leave queue.';
+                    mayhemMessage.className = 'error';
+                    playButton.disabled = false;
+                }
             }
         });
     };
@@ -104,19 +123,24 @@ document.addEventListener('DOMContentLoaded', () => {
                 headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
             });
             const data = await response.json();
-
             if (data.status === 'found') {
                 clearInterval(pollingInterval);
                 pollingInterval = null;
-                // Redirect to the arena page with the matchId
                 window.location.href = `/arena.html?matchId=${data.matchId}`;
             } else {
                 console.log('Still waiting for a match...');
             }
-        } catch(error) {
+        } catch (error) {
             console.error('Error polling for match status:', error);
             clearInterval(pollingInterval);
             pollingInterval = null;
+            const playButton = document.getElementById('playMayhemButton');
+            const mayhemMessage = document.getElementById('mayhemMessage');
+            mayhemMessage.textContent = 'Error: Disconnected from queue. Please try again.';
+            mayhemMessage.className = 'error';
+            playButton.textContent = 'Play';
+            playButton.style.borderColor = '#00FF00';
+            playButton.disabled = false;
         }
     };
     
@@ -157,7 +181,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const messageDiv = document.getElementById('message');
 
         const showView = (viewToShow) => {
-            if(loginView && registerView && forgotPasswordView) {
+            if (loginView && registerView && forgotPasswordView) {
                 [loginView, registerView, forgotPasswordView].forEach(view => view.classList.add('hidden'));
                 viewToShow.classList.remove('hidden');
                 messageDiv.textContent = '';
@@ -165,12 +189,12 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         };
 
-        if(showRegister) showRegister.addEventListener('click', () => showView(registerView));
-        if(showLogin) showLogin.addEventListener('click', () => showView(loginView));
-        if(showForgotPassword) showForgotPassword.addEventListener('click', () => showView(forgotPasswordView));
-        if(showLoginFromForgot) showLoginFromForgot.addEventListener('click', () => showView(loginView));
+        if (showRegister) showRegister.addEventListener('click', () => showView(registerView));
+        if (showLogin) showLogin.addEventListener('click', () => showView(loginView));
+        if (showForgotPassword) showForgotPassword.addEventListener('click', () => showView(forgotPasswordView));
+        if (showLoginFromForgot) showLoginFromForgot.addEventListener('click', () => showView(loginView));
 
-        if(registerForm) registerForm.addEventListener('submit', async (event) => {
+        if (registerForm) registerForm.addEventListener('submit', async (event) => {
             event.preventDefault();
             const username = document.getElementById('registerUsername').value;
             const email = document.getElementById('registerEmail').value;
@@ -182,7 +206,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (response.ok) registerForm.reset();
         });
 
-        if(loginForm) loginForm.addEventListener('submit', async (event) => {
+        if (loginForm) loginForm.addEventListener('submit', async (event) => {
             event.preventDefault();
             const email = document.getElementById('loginEmail').value;
             const password = document.getElementById('loginPassword').value;
@@ -197,7 +221,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        if(forgotPasswordForm) forgotPasswordForm.addEventListener('submit', async (event) => {
+        if (forgotPasswordForm) forgotPasswordForm.addEventListener('submit', async (event) => {
             event.preventDefault();
             const email = document.getElementById('forgotEmail').value;
             const response = await fetch('/api/forgot-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }), });
