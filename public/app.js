@@ -2,44 +2,44 @@ document.addEventListener('DOMContentLoaded', () => {
     const mainContainer = document.querySelector('.container');
 
     const fetchAndRenderLobby = async () => {
-        // This line was moved inside the function to get the latest token status
         const token = localStorage.getItem('authToken'); 
         
         if (!token) {
-            renderLoginView(); // If no token, show login
+            renderLoginView();
             return;
         }
 
         try {
             const response = await fetch('/api/user/me', {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
+                headers: { 'Authorization': `Bearer ${token}` }
             });
 
             if (response.ok) {
                 const userData = await response.json();
                 renderLobbyView(userData);
             } else {
-                // Token is invalid or expired
                 localStorage.removeItem('authToken');
                 renderLoginView();
             }
         } catch (error) {
             console.error('Failed to fetch user data:', error);
-            renderLoginView(); // Show login on error
+            renderLoginView();
         }
     };
     
     const renderLobbyView = (userData) => {
         mainContainer.innerHTML = `
-            <div class="lobby-header">
-                <div class="profile-name">${userData.username}</div>
-                <div class="wallet">
-                    <div>HT: ${Number(userData.hype_token_balance).toLocaleString()}</div>
-                    <div>OS: ${Number(userData.orium_shard_balance).toLocaleString()}</div>
+            <div class="header">
+                <div class="user-info">
+                    <div class="username">${userData.username}</div>
+                    <div class="wallet">
+                        <span>${Number(userData.hype_token_balance).toLocaleString()} HT</span> | 
+                        <span>${Number(userData.orium_shard_balance).toLocaleString()} OS</span>
+                    </div>
                 </div>
+                <button class="logout-btn" id="logoutButton">Logout</button>
             </div>
+            <h2>Select Game</h2>
             <div class="game-modes">
                 <div class="game-tile">
                     <h3>Meme Stock Mayhem</h3>
@@ -55,6 +55,13 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
         `;
 
+        // Logout Button Logic
+        document.getElementById('logoutButton').addEventListener('click', () => {
+            localStorage.removeItem('authToken');
+            fetchAndRenderLobby(); // This will now call renderLoginView
+        });
+
+        // Matchmaking Button Logic
         document.getElementById('playMayhemButton').addEventListener('click', async () => {
             const mayhemMessage = document.getElementById('mayhemMessage');
             mayhemMessage.textContent = 'Finding a match...';
@@ -79,16 +86,23 @@ document.addEventListener('DOMContentLoaded', () => {
     
     const renderLoginView = () => {
         mainContainer.innerHTML = `
-            <div id="loginView">
-                <h2>Login</h2>
-                <form id="loginForm">
-                    <input type="email" id="loginEmail" placeholder="Email" required>
-                    <input type="password" id="loginPassword" placeholder="Password" required>
-                    <button type="submit">Login</button>
-                </form>
-                <div class="toggle-link"><a id="showForgotPassword">Forgot Password?</a></div>
-                <div class="toggle-link">Don't have an account? <a id="showRegister">Register here</a></div>
-            </div>
+            <h2>Login</h2>
+            <form id="loginForm">
+                <input type="email" id="loginEmail" placeholder="Email" required>
+                <input type="password" id="loginPassword" placeholder="Password" required>
+                <button type="submit">Login</button>
+            </form>
+            <div class="toggle-link"><a id="showForgotPassword">Forgot Password?</a></div>
+            <div class="toggle-link">Don't have an account? <a id="showRegister">Register here</a></div>
+            <div id="message"></div>
+        `;
+        // We re-add the forms and their listeners only when needed
+        addAuthView();
+    };
+
+    const addAuthView = () => {
+        const existingContainer = document.querySelector('.container');
+        const authHTML = `
             <div id="registerView" class="hidden">
                 <h2>Register</h2>
                 <form id="registerForm">
@@ -108,10 +122,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 </form>
                 <div class="toggle-link">Remembered your password? <a id="showLoginFromForgot">Login here</a></div>
             </div>
-            <div id="message"></div>
         `;
+        // Insert the extra views without replacing the message div
+        const messageDiv = document.getElementById('message');
+        if (messageDiv) {
+            messageDiv.insertAdjacentHTML('beforebegin', authHTML);
+        } else {
+            existingContainer.innerHTML += authHTML;
+        }
         attachAuthFormListeners();
     };
+
 
     const attachAuthFormListeners = () => {
         const loginView = document.getElementById('loginView');
@@ -127,18 +148,22 @@ document.addEventListener('DOMContentLoaded', () => {
         const messageDiv = document.getElementById('message');
 
         const showView = (viewToShow) => {
-            [loginView, registerView, forgotPasswordView].forEach(view => view.classList.add('hidden'));
-            viewToShow.classList.remove('hidden');
-            messageDiv.textContent = '';
-            messageDiv.className = '';
+            [loginView, registerView, forgotPasswordView].forEach(view => {
+                if (view) view.classList.add('hidden');
+            });
+            if(viewToShow) viewToShow.classList.remove('hidden');
+            if(messageDiv) {
+                messageDiv.textContent = '';
+                messageDiv.className = '';
+            }
         };
 
-        showRegister.addEventListener('click', () => showView(registerView));
-        showLogin.addEventListener('click', () => showView(loginView));
-        showForgotPassword.addEventListener('click', () => showView(forgotPasswordView));
-        showLoginFromForgot.addEventListener('click', () => showView(loginView));
+        if(showRegister) showRegister.addEventListener('click', () => showView(registerView));
+        if(showLogin) showLogin.addEventListener('click', () => showView(loginView));
+        if(showForgotPassword) showForgotPassword.addEventListener('click', () => showView(forgotPasswordView));
+        if(showLoginFromForgot) showLoginFromForgot.addEventListener('click', () => showView(loginView));
 
-        registerForm.addEventListener('submit', async (event) => {
+        if(registerForm) registerForm.addEventListener('submit', async (event) => {
             event.preventDefault();
             const username = document.getElementById('registerUsername').value;
             const email = document.getElementById('registerEmail').value;
@@ -154,7 +179,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (response.ok) registerForm.reset();
         });
 
-        loginForm.addEventListener('submit', async (event) => {
+        if(loginForm) loginForm.addEventListener('submit', async (event) => {
             event.preventDefault();
             const email = document.getElementById('loginEmail').value;
             const password = document.getElementById('loginPassword').value;
@@ -173,7 +198,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        forgotPasswordForm.addEventListener('submit', async (event) => {
+        if(forgotPasswordForm) forgotPasswordForm.addEventListener('submit', async (event) => {
             event.preventDefault();
             const email = document.getElementById('forgotEmail').value;
             const response = await fetch('/api/forgot-password', {
@@ -188,5 +213,9 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // Initial page load check
-    fetchAndRenderLobby();
+    if (document.getElementById('loginView')) {
+        attachAuthFormListeners();
+    } else {
+       fetchAndRenderLobby();
+    }
 });

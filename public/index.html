@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Orium.fun - Welcome</title>
+    <title>Orium.fun</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
@@ -11,48 +11,7 @@
 </head>
 <body>
     <div class="container">
-        <div id="loginView">
-            <h2>Login</h2>
-            <form id="loginForm">
-                <input type="email" id="loginEmail" placeholder="Email" required>
-                <input type="password" id="loginPassword" placeholder="Password" required>
-                <button type="submit">Login</button>
-            </form>
-            <div class="toggle-link">
-                <a id="showForgotPassword">Forgot Password?</a>
-            </div>
-            <div class="toggle-link">
-                Don't have an account? <a id="showRegister">Register here</a>
-            </div>
         </div>
-        
-        <div id="registerView" class="hidden">
-            <h2>Register</h2>
-            <form id="registerForm">
-                <input type="text" id="registerUsername" placeholder="Username" required>
-                <input type="email" id="registerEmail" placeholder="Email" required>
-                <input type="password" id="registerPassword" placeholder="Password" required>
-                <button type="submit">Create Account</button>
-            </form>
-            <div class="toggle-link">
-                Already have an account? <a id="showLogin">Login here</a>
-            </div>
-        </div>
-
-        <div id="forgotPasswordView" class="hidden">
-            <h2>Forgot Password</h2>
-            <form id="forgotPasswordForm">
-                <p style="font-size: 0.8em; text-align: center; margin-top: 0;">Enter your email and we'll send you a reset link.</p>
-                <input type="email" id="forgotEmail" placeholder="Email" required>
-                <button type="submit">Send Reset Link</button>
-            </form>
-            <div class="toggle-link">
-                Remembered your password? <a id="showLoginFromForgot">Login here</a>
-            </div>
-        </div>
-
-        <div id="message"></div>
-    </div>
     <script src="app.js"></script>
 </body>
 </html>

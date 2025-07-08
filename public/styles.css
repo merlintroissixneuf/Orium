@@ -5,21 +5,25 @@ body {
     display: flex; 
     justify-content: center; 
     align-items: center; 
-    height: 100vh; 
+    min-height: 100vh; 
     margin: 0;
+    padding: 1rem;
     font-size: 0.8em;
+    box-sizing: border-box;
 }
 .container { 
     background-color: #000000; 
     padding: 2rem; 
     border: 3px solid #00FF00;
-    width: 350px; 
+    width: 100%; 
+    max-width: 700px;
 }
 h1, h2 { 
     text-align: center; 
     color: #00FF00; 
     font-size: 1.5em;
     margin-bottom: 2rem;
+    text-shadow: 2px 2px #000;
 }
 p {
     line-height: 1.5;
@@ -47,6 +51,7 @@ button {
     font-family: 'Press Start 2P', cursive;
     font-weight: bold; 
     cursor: pointer; 
+    text-transform: uppercase;
 }
 button:hover {
     background-color: #000000;
@@ -65,9 +70,8 @@ a:hover { text-decoration: underline; }
 .success { color: #00FF00; }
 .error { color: #FF0000; }
 
-/* Add these new styles to the end of public/styles.css */
-
-.lobby-header {
+/* --- New Lobby Styles --- */
+.header {
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -76,37 +80,58 @@ a:hover { text-decoration: underline; }
     margin-bottom: 2rem;
 }
 
-.lobby-header .profile-name {
+.user-info .username {
     font-size: 1.2em;
+    color: #FFFFFF;
 }
 
-.lobby-header .wallet {
-    text-align: right;
+.user-info .wallet {
     font-size: 0.8em;
+    opacity: 0.8;
+    margin-top: 0.5rem;
+}
+
+.logout-btn {
+    background: none;
+    border: 1px solid #FF0000;
+    color: #FF0000;
+    padding: 8px 12px;
+    font-size: 0.7em;
+    width: auto;
+}
+.logout-btn:hover {
+    background: #FF0000;
+    color: #000000;
 }
 
 .game-modes {
     display: flex;
     justify-content: space-between;
     gap: 1.5rem;
+    margin-top: 2rem;
 }
 
 .game-tile {
     border: 2px solid #FFFFFF;
     padding: 1.5rem;
-    flex-grow: 1;
+    flex-basis: 48%; /* Each tile takes up almost half the space */
     text-align: center;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
 }
 
 .game-tile h3 {
     color: #00FF00;
     margin-top: 0;
+    font-size: 1em;
 }
 
 .game-tile p {
     font-size: 0.7em;
     margin-bottom: 2rem;
     opacity: 0.8;
+    flex-grow: 1;
 }
 
 .game-tile button {
@@ -118,4 +143,26 @@ a:hover { text-decoration: underline; }
     color: #888;
     border-color: #888;
     cursor: not-allowed;
+}
+
+/* --- Mobile Responsiveness --- */
+@media (max-width: 600px) {
+    .container {
+        padding: 1rem;
+        border: none;
+    }
+    .game-modes {
+        flex-direction: column; /* Stack game tiles vertically */
+    }
+    .header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 1rem;
+    }
+    .user-info .wallet {
+        text-align: left;
+    }
+    .logout-btn {
+        width: 100%;
+    }
 }
