@@ -8,9 +8,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const bearsScoreDisplay = document.querySelector('#bearsScore');
     const bullsFill = document.getElementById('bullsFill');
     const bearsFill = document.getElementById('bearsFill');
+    const arenaContent = document.getElementById('arenaContent');
 
     // State
-    let startPrice = 150; // Default, will be updated by server
+    let startPrice = 0;
     
     // Connection
     const urlParams = new URLSearchParams(window.location.search);
@@ -18,22 +19,20 @@ document.addEventListener('DOMContentLoaded', () => {
     const token = localStorage.getItem('authToken');
 
     if (!matchId || !token) {
-        document.querySelector('.container').innerHTML = '<h2>Error: Missing match or auth data.</h2>';
+        arenaContent.innerHTML = '<h2>Error: Missing match or auth data.</h2>';
         return;
     }
 
     const socket = io({ auth: { token } });
 
-    socket.on('connect', () => {
-        socket.emit('joinMatch', { matchId });
-    });
+    socket.on('connect', () => socket.emit('joinMatch', { matchId }));
 
     tapButton.addEventListener('click', () => socket.emit('playerTap', { matchId }) );
 
     // Event Listeners
     socket.on('matchJoined', (data) => {
         factionIndicator.textContent = `FACTION: ${data.faction}`;
-        startPrice = parseFloat(data.startPrice);
+        startPrice = parseFloat(data.start_price);
     });
     
     socket.on('gameStateUpdate', (data) => {
@@ -42,12 +41,15 @@ document.addEventListener('DOMContentLoaded', () => {
         bearsScoreDisplay.textContent = `BEARS: ${data.bearTaps || 0}`;
 
         const priceChange = data.newPrice - startPrice;
-        // Calculate fill percentage based on a +/- $5 range for a full bar
-        const maxChange = 5; 
-        const fillPercentage = (priceChange / maxChange) * 50;
+        // Let's say a full bar represents a +/- 25 point swing
+        const maxPriceSwing = 25; 
+        const fillPercentage = (priceChange / maxPriceSwing) * 50;
+        
+        // Clamp the values between -50 and 50
+        const clampedFill = Math.max(-50, Math.min(50, fillPercentage));
 
-        bullsFill.style.height = `${50 + fillPercentage}%`;
-        bearsFill.style.height = `${50 - fillPercentage}%`;
+        bullsFill.style.height = `${50 + clampedFill}%`;
+        bearsFill.style.height = `${50 - clampedFill}%`;
     });
 
     socket.on('timeUpdate', (data) => {
@@ -57,8 +59,16 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     socket.on('matchEnd', (data) => {
-        tapButton.disabled = true;
-        tapButton.textContent = 'GAME OVER';
+        arenaContent.innerHTML = `
+            <div class="match-over-screen">
+                <h2>GAME OVER</h2>
+                <h3 style="color: ${data.winningFaction === 'BULLS' ? '#00FF00' : '#FF0000'};">${data.winningFaction} WIN!</h3>
+                <button id="lobbyReturnButton">Return to Lobby</button>
+            </div>
+        `;
+        document.getElementById('lobbyReturnButton').addEventListener('click', () => {
+            window.location.href = '/';
+        });
     });
 
     socket.on('connect_error', (err) => { window.location.href = '/'; });

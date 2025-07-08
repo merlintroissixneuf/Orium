@@ -134,161 +134,39 @@ a:hover { text-decoration: underline; }
     border-color: #888;
     cursor: not-allowed;
 }
-
 /* --- Arena Styles --- */
 .arena-container {
+    position: relative;
     border-color: #FFFFFF;
-}
-.arena-header {
-    display: flex;
-    justify-content: space-between;
-    font-size: 1.2em;
-    padding-bottom: 1rem;
-    border-bottom: 2px solid #FFFFFF;
-}
-.chart-container {
-    height: 300px;
-    display: flex;
+    padding: 0;
+    overflow: hidden;
+    display: flex; /* Use flexbox to center the foreground content */
     justify-content: center;
     align-items: center;
-    margin: 2rem 0;
-    /* The ugly border is removed */
-}
-.price-display {
-    font-size: 3em;
-    color: #FFFFFF;
-    text-shadow: 3px 3px #00FF00;
-}
-.price-display #priceTicker {
-    font-size: 0.5em;
-    color: #00FF00;
-    margin-left: 0.5rem;
-    text-shadow: none;
-}
-.controls {
-    text-align: center;
-}
-#tapButton {
-    width: 200px;
-    height: 100px; /* Changed from square to rectangle */
-    font-size: 2em;
-    border: 3px solid #00FF00;
-    /* The ugly roundness is removed */
-}
-#tapButton:active {
-    /* Add a press effect */
-    background-color: #009900 !important;
-    border-color: #FFFFFF !important;
-}
-
-
-/* --- Mobile Responsiveness --- */
-@media (max-width: 600px) {
-    .container {
-        padding: 1rem;
-        border: none;
-    }
-    .game-modes {
-        flex-direction: column;
-    }
-    .header {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 1rem;
-    }
-    .user-info .wallet {
-        text-align: left;
-    }
-    .logout-btn {
-        width: 100%;
-    }
-}
-/* Additions for arena.html */
-.faction-scores {
-    display: flex;
-    justify-content: space-around;
-    margin-top: 1.5rem;
-    font-size: 1em;
-}
-.score-box {
-    padding: 0.5rem 1rem;
-    border: 2px solid;
-}
-#bullsScore {
-    border-color: #00FF00;
-    color: #00FF00;
-}
-#bearsScore {
-    border-color: #FF0000;
-    color: #FF0000;
-}
-/* Additions for liquid fill effect */
-.score-box {
-    position: relative; /* Needed for the fill effect */
-    overflow: hidden; /* Hide the overflow from the fill div */
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    padding: 1rem;
-}
-.score-fill {
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    height: 0%; /* Starts at 0, controlled by JS */
-    transition: height 0.2s ease-out;
-    z-index: 1;
-}
-#bullsFill {
-    background-color: #00FF00;
-}
-#bearsFill {
-    background-color: #FF0000;
-}
-.score-text {
-    position: relative;
-    z-index: 2; /* Ensure text is above the fill */
-    mix-blend-mode: difference; /* Makes text visible against the fill */
-}
-.score-target {
-    position: relative;
-    z-index: 2;
-    font-size: 0.6em;
-    opacity: 0.7;
-    margin-top: 0.5rem;
-}
-/* --- Arena Styles --- */
-.arena-container {
-    position: relative; /* Needed for positioning the fill layers */
-    border-color: #FFFFFF;
-    padding: 0; /* Remove padding to allow fill to touch edges */
-    overflow: hidden; /* Hide fill overflow */
 }
 .fill-background {
     position: absolute;
     left: 0;
     right: 0;
-    height: 50%; /* Each starts at 50% */
-    transition: height 0.3s ease-out;
+    width: 100%;
+    transition: height 0.2s linear; /* Use linear for smooth battle effect */
+    will-change: height;
 }
 #bullsFill {
-    background-color: #00FF00;
-    bottom: 0; /* Aligns to the bottom */
+    background-color: rgba(0, 255, 0, 0.2);
+    bottom: 0;
 }
 #bearsFill {
-    background-color: #FF0000;
-    top: 0; /* Aligns to the top */
+    background-color: rgba(255, 0, 0, 0.2);
+    top: 0;
 }
 .arena-foreground {
     position: relative;
-    z-index: 2; /* Make sure content is above the fill */
-    padding: 2rem; /* Add padding here instead of the container */
-    mix-blend-mode: difference; /* This makes text and borders invert color */
-    color: white;
+    z-index: 2;
+    padding: 2rem;
+    width: 100%;
+    backdrop-filter: blur(1px) grayscale(0.5); /* Granulated/static effect */
 }
-
 .arena-header {
     display: flex;
     justify-content: space-between;
@@ -315,25 +193,29 @@ a:hover { text-decoration: underline; }
 }
 .price-display {
     font-size: 3em;
-    text-shadow: 3px 3px #000;
+    color: #FFFFFF;
+    text-shadow: 2px 2px #FF0000, 4px 4px #00FF00;
 }
 .price-display #priceTicker {
-    font-size: 0.5em;
-    margin-left: 0.5rem;
-    text-shadow: none;
+    display: none; /* Ticker isn't needed with new score system */
 }
-.controls {
-    text-align: center;
-}
+.controls { text-align: center; }
 #tapButton {
     width: 200px;
     height: 100px;
     font-size: 2em;
     border: 3px solid #FFFFFF;
-    background-color: #333333;
+    background-color: rgba(255, 255, 255, 0.2);
     color: #FFFFFF;
 }
 #tapButton:active {
     background-color: #FFFFFF !important;
     color: #000000 !important;
+}
+.match-over-screen {
+    text-align: center;
+}
+.match-over-screen h2 {
+    font-size: 2.5em;
+    margin-bottom: 2rem;
 }

@@ -98,11 +98,10 @@ const createMatch = async (players, realPlayersInQueue) => {
     try {
         const startTime = new Date();
         const endTime = new Date(startTime.getTime() + MATCH_DURATION_SECONDS * 1000);
-        const startPrice = 150.00;
-        const bullTarget = startPrice + 5.00;
-        const bearTarget = startPrice - 8.00;
-        const matchQuery = `INSERT INTO matches (start_price, current_price, status, start_time, end_time, bull_target_price, bear_target_price) VALUES ($1, $1, 'active', $2, $3, $4, $5) RETURNING id;`;
-        const matchResult = await pool.query(matchQuery, [startPrice, startTime, endTime, bullTarget, bearTarget]);
+        const startPrice = 0.00;
+
+        const matchQuery = `INSERT INTO matches (start_price, current_price, status, start_time, end_time) VALUES ($1, $1, 'active', $2, $3) RETURNING id;`;
+        const matchResult = await pool.query(matchQuery, [startPrice, startTime, endTime]);
         const matchId = matchResult.rows[0].id;
         console.log(`Match ${matchId} created.`);
 
@@ -115,7 +114,7 @@ const createMatch = async (players, realPlayersInQueue) => {
             await pool.query(`INSERT INTO match_players (match_id, user_id, faction) VALUES ($1, $2, $3);`, [matchId, player.userId, faction]);
         }
 
-        const bots = players.filter(p => !realPlayersInQueue.some(rp => rp.userId === p.userId));
+        const bots = shuffledPlayers.filter(p => !realPlayersInQueue.some(rp => rp.userId === p.userId));
         const matchBotIntervals = [];
         bots.forEach(bot => {
             const interval = setInterval(() => {
@@ -136,7 +135,6 @@ const createMatch = async (players, realPlayersInQueue) => {
                     botIntervals.get(matchId).forEach(clearInterval);
                     botIntervals.delete(matchId);
                 }
-                // Determine winner and update match status
                 const endPriceRes = await pool.query('SELECT current_price, start_price FROM matches WHERE id = $1', [matchId]);
                 const { current_price, start_price } = endPriceRes.rows[0];
                 const winningFaction = current_price > start_price ? 'BULLS' : 'BEARS';
@@ -148,8 +146,6 @@ const createMatch = async (players, realPlayersInQueue) => {
         }, 1000);
         activeMatchTimers.set(matchId, matchTimer);
 
-        // ### THIS IS THE FIX ###
-        // Notify all REAL players that their match is ready.
         realPlayersInQueue.forEach(player => {
             activeMatchStatus.set(player.userId, { status: 'found', matchId });
         });
@@ -160,43 +156,6 @@ const createMatch = async (players, realPlayersInQueue) => {
 
 // --- Socket.IO Logic ---
 io.use(socketAuthMiddleware);
-io.on('connection', (socket) => {
-    // ... same as before
-});
-
-// --- API ROUTES ---
-app.post('/api/matchmaking/join', verifyToken, async (req, res) => {
-    const userId = req.user.userId;
-    if (matchmakingQueue.find(p => p.userId === userId) || activeMatchStatus.has(userId)) {
-        return res.status(409).json({ message: 'You are already in queue or in a match.' });
-    }
-    matchmakingQueue.push({ userId });
-    activeMatchStatus.set(userId, { status: 'waiting' });
-    console.log(`User ${userId} joined queue. Size: ${matchmakingQueue.length}`);
-    if (matchmakingQueue.length >= MATCH_SIZE) {
-        clearTimeout(matchmakingTimer);
-        matchmakingTimer = null;
-        const playersToStart = matchmakingQueue.splice(0, MATCH_SIZE);
-        await createMatch(playersToStart, playersToStart); // Pass the list of real players
-    } else if (matchmakingQueue.length === 1) {
-        matchmakingTimer = setTimeout(async () => {
-            console.log('Matchmaking timeout reached. Filling with bots.');
-            const realPlayersInQueue = [...matchmakingQueue]; // Copy real players before clearing
-            const spotsToFill = MATCH_SIZE - realPlayersInQueue.length;
-            const botQuery = `SELECT id FROM users WHERE username LIKE 'bot%' AND id NOT IN (SELECT user_id FROM match_players WHERE match_id IN (SELECT id FROM matches WHERE status = 'active')) LIMIT $1;`;
-            const { rows } = await pool.query(botQuery, [spotsToFill]);
-            const botPlayers = rows.map(bot => ({ userId: bot.id }));
-            const playersToStart = [...realPlayersInQueue, ...botPlayers];
-            matchmakingQueue.length = 0;
-            await createMatch(playersToStart, realPlayersInQueue); // Pass both full list and real players list
-            matchmakingTimer = null;
-        }, MATCHMAKING_TIMEOUT);
-    }
-    res.json({ message: 'You have joined the queue.' });
-});
-
-// --- All other routes, middleware, and server start logic is unchanged ---
-// (The full code is included below for completeness)
 io.on('connection', (socket) => {
     console.log(`User connected: ${socket.user.username}`);
     socket.on('joinMatch', async ({ matchId }) => {
@@ -222,6 +181,8 @@ io.on('connection', (socket) => {
     });
     socket.on('disconnect', () => console.log(`User disconnected: ${socket.user.username}`));
 });
+
+// --- API ROUTES ---
 app.post('/api/register', async (req, res) => {
     const { username, email, password } = req.body;
     if (!username || !email || !password) return res.status(400).json({ message: 'All fields are required.' });
@@ -326,6 +287,35 @@ app.get('/api/user/me', verifyToken, async (req, res) => {
         res.status(500).json({ message: 'Server error.' });
     }
 });
+app.post('/api/matchmaking/join', verifyToken, async (req, res) => {
+    const userId = req.user.userId;
+    if (matchmakingQueue.find(p => p.userId === userId) || activeMatchStatus.has(userId)) {
+        return res.status(409).json({ message: 'You are already in queue or in a match.' });
+    }
+    matchmakingQueue.push({ userId });
+    activeMatchStatus.set(userId, { status: 'waiting' });
+    console.log(`User ${userId} joined queue. Size: ${matchmakingQueue.length}`);
+    if (matchmakingQueue.length >= MATCH_SIZE) {
+        clearTimeout(matchmakingTimer);
+        matchmakingTimer = null;
+        const playersToStart = matchmakingQueue.splice(0, MATCH_SIZE);
+        await createMatch(playersToStart, playersToStart);
+    } else if (matchmakingQueue.length === 1) {
+        matchmakingTimer = setTimeout(async () => {
+            console.log('Matchmaking timeout reached. Filling with bots.');
+            const realPlayersInQueue = [...matchmakingQueue];
+            const spotsToFill = MATCH_SIZE - realPlayersInQueue.length;
+            const botQuery = `SELECT id FROM users WHERE username LIKE 'bot%' AND id NOT IN (SELECT user_id FROM match_players WHERE match_id IN (SELECT id FROM matches WHERE status = 'active')) LIMIT $1;`;
+            const { rows } = await pool.query(botQuery, [spotsToFill]);
+            const botPlayers = rows.map(bot => ({ userId: bot.id }));
+            const playersToStart = [...realPlayersInQueue, ...botPlayers];
+            matchmakingQueue.length = 0;
+            await createMatch(playersToStart, realPlayersInQueue);
+            matchmakingTimer = null;
+        }, MATCHMAKING_TIMEOUT);
+    }
+    res.json({ message: 'You have joined the queue.' });
+});
 app.get('/api/matchmaking/status', verifyToken, (req, res) => {
     const userId = req.user.userId;
     const userStatus = activeMatchStatus.get(userId);
@@ -353,6 +343,7 @@ app.post('/api/matchmaking/leave', verifyToken, (req, res) => {
     }
 });
 
+// --- CATCH-ALL & SERVER START ---
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
