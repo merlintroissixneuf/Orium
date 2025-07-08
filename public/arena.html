@@ -3,40 +3,34 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Orium.fun - Arena</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <title>Meme Stock Mayhem - Arena</title>
+    <link rel="stylesheet" href="/styles.css">
     <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css">
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="/arena.js"></script>
 </head>
 <body>
     <div class="container arena-container" id="tapArea">
-        <div class="fill-background" id="bearsFill"></div>
         <div class="fill-background" id="bullsFill"></div>
-
+        <div class="fill-background" id="bearsFill"></div>
+        <div class="arena-text" id="bullsText">BULLS</div>
+        <div class="arena-text" id="bearsText">BEARS</div>
         <div class="arena-foreground" id="arenaContent">
             <div class="arena-header">
                 <div id="factionIndicator">FACTION: ---</div>
                 <div id="timer">TIME: 1:00</div>
             </div>
-            
             <div class="faction-scores">
-                <div id="bullsScore" class="score-box">BULLS: 0</div>
-                <div id="bearsScore" class="score-box">BEARS: 0</div>
+                <div class="score-box" id="bullsScore">BULLS: 0</div>
+                <div class="score-box" id="bearsScore">BEARS: 0</div>
             </div>
-
             <div class="chart-container">
-                <div class="price-display">
-                    <span id="priceValue">0.00</span>
-                </div>
+                <div class="price-display" id="priceValue">0.00</div>
             </div>
-
             <div class="controls">
-                <p class="tap-instruction">TAP ANYWHERE</p>
+                <div class="tap-instruction">TAP ANYWHERE</div>
             </div>
         </div>
     </div>
-    <script src="/socket.io/socket.io.js"></script>
-    <script src="arena.js"></script>
 </body>
 </html>

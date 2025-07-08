@@ -162,6 +162,9 @@ const createMatch = async (players, realPlayersInQueue) => {
         
         console.log('--- Factions Assigned ---');
         shuffledPlayers.forEach(p => console.log(`Player ${p.userId}: ${p.faction}`));
+        const bullPlayers = shuffledPlayers.filter(p => p.faction === 'BULLS').length;
+        const bearPlayers = shuffledPlayers.length - bullPlayers;
+        console.log(`Faction distribution: ${bullPlayers} Bulls, ${bearPlayers} Bears`);
         console.log('-------------------------');
 
         const bots = shuffledPlayers.filter(p => !realPlayersInQueue.some(rp => rp.userId === p.userId));
@@ -205,11 +208,21 @@ const createMatch = async (players, realPlayersInQueue) => {
                 const { current_price, start_price } = endPriceRes.rows[0];
                 const winningFaction = current_price > start_price ? 'BULLS' : 'BEARS';
                 await pool.query('UPDATE matches SET status = $1, winning_faction = $2 WHERE id = $3', ['completed', winningFaction, matchId]);
+                // Fetch leaderboard data
+                const leaderboardQuery = `
+                    SELECT u.username, mp.tap_count
+                    FROM match_players mp
+                    JOIN users u ON mp.user_id = u.id
+                    WHERE mp.match_id = $1
+                    ORDER BY mp.tap_count DESC
+                `;
+                const leaderboardResult = await pool.query(leaderboardQuery, [matchId]);
+                const leaderboard = leaderboardResult.rows;
                 // Clear activeMatchStatus for all players in the match
                 const playerIds = await pool.query('SELECT user_id FROM match_players WHERE match_id = $1', [matchId]);
                 playerIds.rows.forEach(({ user_id }) => activeMatchStatus.delete(user_id));
                 console.log(`Cleared activeMatchStatus for match ${matchId}`);
-                io.to(matchId.toString()).emit('matchEnd', { message: 'Match Over!', winningFaction });
+                io.to(matchId.toString()).emit('matchEnd', { message: 'Match Over!', winningFaction, leaderboard });
                 console.log(`Match ${matchId} has ended. Winner: ${winningFaction}`);
             }
         }, 1000);
@@ -421,7 +434,6 @@ app.post('/api/matchmaking/leave', verifyToken, (req, res) => {
         }
         return res.json({ message: "You have left the queue." });
     } else {
-        // Clear activeMatchStatus in case user is stuck
         activeMatchStatus.delete(userId);
         console.log(`User ${userId} was not in queue but cleared from activeMatchStatus`);
         return res.json({ message: "You were not in the queue, but state has been reset." });

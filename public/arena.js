@@ -9,11 +9,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const bullsFill = document.getElementById('bullsFill');
     const bearsFill = document.getElementById('bearsFill');
     const arenaContent = document.getElementById('arenaContent');
+    const bullsText = document.getElementById('bullsText');
+    const bearsText = document.getElementById('bearsText');
 
     // State
     let startPrice = 0;
-    let canTap = true; // For tap throttling
-    
+    let canTap = true;
+
     // Connection
     const urlParams = new URLSearchParams(window.location.search);
     const matchId = urlParams.get('matchId');
@@ -31,14 +33,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (canTap) {
             socket.emit('playerTap', { matchId });
             canTap = false;
-            // Throttle taps to prevent spamming
-            setTimeout(() => { canTap = true; }, 100); 
+            setTimeout(() => { canTap = true; }, 100);
         }
     };
     
     tapArea.addEventListener('click', handleTap);
     document.addEventListener('keydown', (event) => {
-        // Check if the key is a single character and not a modifier key
         if (event.key.length === 1 && !event.ctrlKey && !event.altKey && !event.metaKey) {
             handleTap();
         }
@@ -58,12 +58,27 @@ document.addEventListener('DOMContentLoaded', () => {
         bearsScoreDisplay.textContent = `BEARS: ${data.bearTaps || 0}`;
 
         const priceChange = data.newPrice - startPrice;
-        const maxPriceSwing = 15; // A smaller swing makes the bar more reactive
+        const maxPriceSwing = 15;
         const fillPercentage = (priceChange / maxPriceSwing) * 50;
         const clampedFill = Math.max(-50, Math.min(50, fillPercentage));
 
         bullsFill.style.height = `${50 + clampedFill}%`;
         bearsFill.style.height = `${50 - clampedFill}%`;
+
+        // Dynamic text size based on tap counts
+        const bullTaps = data.bullTaps || 0;
+        const bearTaps = data.bearTaps || 0;
+        const maxTaps = Math.max(bullTaps, bearTaps, 1); // Avoid division by zero
+        const minFontSize = 0.5; // em
+        const maxFontSize = 2.0; // em
+        const bullFontSize = bullTaps > bearTaps 
+            ? minFontSize + (maxFontSize - minFontSize) * (bullTaps / maxTaps)
+            : minFontSize;
+        const bearFontSize = bearTaps > bullTaps 
+            ? minFontSize + (maxFontSize - minFontSize) * (bearTaps / maxTaps)
+            : minFontSize;
+        bullsText.style.fontSize = `${bullFontSize}em`;
+        bearsText.style.fontSize = `${bearFontSize}em`;
     });
 
     socket.on('timeUpdate', (data) => {
@@ -73,12 +88,19 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     socket.on('matchEnd', (data) => {
-        tapArea.removeEventListener('click', handleTap); // Disable tapping
+        tapArea.removeEventListener('click', handleTap);
         canTap = false;
+        const leaderboardHTML = data.leaderboard.map(player => 
+            `<div class="leaderboard-entry">${player.username}: ${player.tap_count} taps</div>`
+        ).join('');
         arenaContent.innerHTML = `
             <div class="match-over-screen">
                 <h2>GAME OVER</h2>
                 <h3 style="color: ${data.winningFaction === 'BULLS' ? '#00FF00' : '#FF0000'};">${data.winningFaction} WIN!</h3>
+                <div class="leaderboard">
+                    <h3>Leaderboard</h3>
+                    ${leaderboardHTML}
+                </div>
                 <button id="lobbyReturnButton">Return to Lobby</button>
             </div>
         `;
