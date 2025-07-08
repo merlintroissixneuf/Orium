@@ -1,0 +1,42 @@
+Orium.fun: Master Project Overview
+
+## 1. PROJECT VISION
+The core vision for Orium.fun is to create a fast-paced, visually appealing, and highly addictive web-based gaming platform that gamifies financial markets. The platform is designed for the "TikTok generation," prioritizing dead-simple gameplay, vibrant aesthetics, and deep social integration, all powered by a native dual-token economy. It will launch with two distinct but connected core experiences: "Meme Stock Mayhem" and "Crystal Ball".
+
+## 2. CORE GAMEPLAY & RULES
+### Game Mode 1: Meme Stock Mayhem
+* **Objective**: To work with a faction (Bulls or Bears) to push a fictional stock's score further in their direction than the opposing faction by the end of a 60-second timed match.
+* **Gameplay Loop**:
+    * A player clicks "Play" and is placed into a matchmaking queue.
+    * Once 10 players are found (filling with bots after a 10-second timeout), a match begins.
+    * Players are randomly and evenly assigned to either the BULLS (Green) or BEARS (Red) faction.
+    * All players view a live score for the match, which starts at 0.
+* **Core Mechanic**: The primary interaction is tapping anywhere on the screen or pressing keyboard keys. Taps from BULLS contribute positive pressure, and taps from BEARS contribute negative pressure.
+* **Winning & Rewards**: The match ends when the timer expires. If the final score is greater than 0, BULLS win; if it's less than 0, BEARS win. The winning faction splits a prize pool of Hype Tokens (HT), with rewards distributed proportionally based on each player's number of taps.
+
+### Game Mode 2: Crystal Ball
+* **Objective**: To correctly predict the short-term price movement of real-world assets and win Orium Shards (OS).
+* **Gameplay Loop**:
+    * A backend service generates a binary prediction question (e.g., "Will BTC/USD be HIGHER than $X in 60 seconds?").
+    * The player places a wager of Orium Shards (OS) on "HIGHER" or "LOWER".
+* **Resolution & Rewards**: Another backend service determines the outcome. If the user's choice matches the outcome, they win double their wager back.
+
+## 3. TECHNICAL ARCHITECTURE & CURRENT STATUS
+* **Core Technology Stack**:
+    * **Frontend**: Vanilla JavaScript, HTML, CSS (with Socket.IO Client)
+    * **Backend**: Node.js with Express, Socket.IO, and node-postgres
+    * **Database**: PostgreSQL
+    * **Hosting**: All services deployed on Render.com
+
+* **Implemented Features**:
+    * **Full User Authentication System**: Registration, Login, secure password handling, email verification, and password recovery system.
+    * **Dynamic Game Lobby**: A mobile-responsive UI that displays the logged-in user's profile name and wallet balances (Hype Tokens & Orium Shards). Includes a logout option and game mode selection tiles.
+    * **8-Bit Arcade Styling**: Frontend is styled with the 'Press Start 2P' font and a consistent retro color palette.
+    * **Meme Stock Mayhem - Phase 1 (Matchmaking)**: A fully functional matchmaking system with a queue, automatic bot-filling after a timeout, and a "leave queue" option.
+    * **Meme Stock Mayhem - Phase 2 (Live Arena)**: A real-time game arena using WebSockets. Includes a live-updating score, faction tap counters, a working match timer, and a game-over screen. Input is supported via mouse-click and keyboard.
+    * **Bot Simulation**: Backend logic to create bot users and have them automatically participate and tap in matches.
+
+* **Unimplemented Features**:
+    * **Meme Stock Mayhem - Phase 3 (Reward Distribution)**: The server-side logic to calculate and distribute Hype Token rewards to the winning players' wallets at the end of a match.
+    * **Crystal Ball Game Mode**: The entire feature set for the second game mode.
+    * **Monetization & Cosmetics**: In-app shop and payment integration.

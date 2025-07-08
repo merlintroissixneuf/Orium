@@ -1,0 +1,192 @@
+Understood. The project will be built with Vanilla JavaScript for the frontend and a custom backend hosted on Render.com. No assumptions will be made, and the original game vision will not be simplified.
+This document refines the master project overview to align with the specified technology. It is a blueprint, not a coding guide.
+Orium.fun: Master Project Overview (Vanilla JS & Render Edition)
+1. CORE TECHNICAL ARCHITECTURE
+The entire system will be divided into three distinct, communicating parts, all hosted on Render.com.
+COMPONENT 1: THE FRONTEND (CLIENT-SIDE)
+Technology: Vanilla JavaScript, HTML, CSS.
+Role: This is what the user sees and interacts with in their browser. It is the "dumb terminal." It is responsible for displaying the game state and capturing user input.
+Core Principle: The frontend will NEVER perform any game logic, security checks, or direct database manipulation. It only sends requests to the backend and displays the data the backend sends back.
+COMPONENT 2: THE BACKEND (SERVER-SIDE)
+Technology: A Node.js Web Service hosted on Render.
+Role: This is the "brain" of Orium.fun. It is the single source of truth. All logic, validation, and security will reside here. It is the only component that can communicate with the database.
+Core Principle: The backend trusts NOTHING from the frontend. It validates every single request (e.g., "Does this user have enough OS to make that wager?", "Is this match still active?").
+COMPONENT 3: THE DATABASE
+Technology: A PostgreSQL database service hosted on Render.
+Role: This is the permanent "memory" of the application. It stores all user information, wallet balances, match history, and prediction data.
+Core Principle: The database is only accessible by the Backend Web Service. The user's browser will never connect to it directly.
+COMPONENT 4: REAL-TIME COMMUNICATION LAYER
+Technology: A WebSocket implementation (using a library like Socket.IO on the Node.js backend).
+Role: This provides the instant, two-way communication required for "Meme Stock Mayhem." It allows the backend to push live price updates to all connected players without them needing to constantly refresh the page.
+2. DETAILED DATABASE SCHEMA (THE BLUEPRINT)
+Before any logic is built, the structure of the data in the PostgreSQL database must be defined. This is the foundation for everything.
+Table: users
+id (Primary Key, unique identifier)
+username (Unique, text)
+email (Unique, text)
+hashed_password (Text, never store plain text passwords)
+created_at (Timestamp)
+Table: wallets
+user_id (Foreign Key to users.id)
+hype_token_balance (Numeric, default 0)
+orium_shard_balance (Numeric, default 0)
+Table: matches (for Meme Stock Mayhem)
+id (Primary Key)
+start_price (Numeric)
+current_price (Numeric)
+status (Text: 'pending', 'active', 'completed')
+start_time (Timestamp)
+end_time (Timestamp)
+winning_faction (Text: 'BULLS', 'BEARS', NULL)
+Table: match_players
+match_id (Foreign Key to matches.id)
+user_id (Foreign Key to users.id)
+faction (Text: 'BULLS' or 'BEARS')
+tap_count (Integer, default 0)
+Table: predictions (for Crystal Ball)
+id (Primary Key)
+asset_name (Text, e.g., 'BTC/USD')
+target_price (Numeric)
+question_time (Timestamp)
+resolution_time (Timestamp)
+final_price (Numeric, nullable)
+outcome (Text: 'HIGHER', 'LOWER', NULL)
+status (Text: 'active', 'resolving', 'completed')
+Table: wagers
+id (Primary Key)
+prediction_id (Foreign Key to predictions.id)
+user_id (Foreign Key to users.id)
+wager_amount (Numeric)
+choice (Text: 'HIGHER' or 'LOWER')
+payout (Numeric, default 0)
+status (Text: 'placed', 'won', 'lost')
+3. SYSTEM-BY-SYSTEM FUNCTIONAL BREAKDOWN
+This details the responsibilities of the Frontend and Backend for each feature of the game.
+SYSTEM A: User Account & Wallet
+Frontend Responsibility:
+Display HTML forms for signup and login.
+Use JavaScript to capture form data and fetch() it to the backend endpoints (e.g., POST to https://orium.fun/api/register).
+Upon successful login, receive a session token from the backend and store it securely (e.g., in an httpOnly cookie).
+Include this token in the header of all future requests to prove identity.
+Request user data and wallet balances from the backend and use JavaScript to update the innerHTML of the header elements.
+Backend Responsibility:
+Create API endpoints: /api/register, /api/login, /api/logout.
+Register: Validate email/username, hash the password using bcrypt, create new entries in the users and wallets tables in the database.
+Login: Find user by email, compare hashed passwords. If they match, generate a session token and send it back to the frontend.
+Create secure endpoints like /api/user/me and /api/user/wallet that require a valid session token, fetch data from the database, and return it as JSON.
+SYSTEM B: Game Mode 1: Meme Stock Mayhem
+Frontend Responsibility:
+Display a "Play" button. Clicking it sends a request to the backend's /api/matchmaking/join endpoint.
+Continuously poll a /api/matchmaking/status endpoint to see if a match has been found.
+When the backend confirms a match has started, transition the UI to the Arena screen and establish a WebSocket connection to the backend server.
+Listen for price_update events from the WebSocket and update the chart in real-time.
+Listen for match_end events, which will contain the final results. Display the winner and individual rewards.
+When the user clicks/taps, send a tap event over the WebSocket to the backend.
+Backend Responsibility:
+Matchmaking: The /api/matchmaking/join endpoint adds a user to a queue (stored in server memory or a temporary cache like Redis). A background process checks this queue. When full, it creates a match and match_players entry in the database, assigns factions, and marks the match as active.
+Real-Time Engine (WebSockets): When a user connects to the WebSocket for a match, the server validates their session. It listens for tap events. For each tap, it runs anti-cheat validation (rate-limiting), increments the tap_count for that player in the match_players table, recalculates the current_price in the matches table, and then broadcasts a price_update event with the new price to all players in that match.
+Reward Distribution (Scheduled Job): Render allows "Cron Jobs." A separate script will run every minute. It will scan the matches table for any active matches where end_time has passed. For each, it will:
+Determine the winning faction.
+Fetch all players and their tap_count from the winning faction.
+Calculate proportional HT rewards.
+Update the hype_token_balance for each winner in the wallets table using a secure database transaction.
+Update the match status to completed.
+Send a final match_end event over the WebSocket.
+SYSTEM C: Game Mode 2: Crystal Ball
+Frontend Responsibility:
+On page load, send a request to /api/predictions/current to get the active question.
+Use JavaScript to display the question text and the input for the OS wager.
+When the user clicks "HIGHER" or "LOWER", send a request to /api/predictions/wager with the prediction ID, choice, and wager amount.
+Display a confirmation that the wager was placed, or an error if the backend rejected it.
+Periodically poll a /api/wagers/:id endpoint to check if a wager has been resolved, and display the win/loss result.
+Backend Responsibility:
+Question Generation (Scheduled Job #1): A Cron Job runs every 60 seconds. It:
+Calls the external financial data API.
+Generates the question (e.g., "Will BTC be HIGHER than $68,500.50 in 60 seconds?").
+Saves this data as a new entry in the predictions table with status: 'active'.
+Wagering Endpoint: An endpoint /api/predictions/wager receives wager requests. It performs these checks in a single database transaction:
+Does the user have enough OS in their wallets table?
+Is the prediction they are betting on still active?
+If both are true, it subtracts the wager from their orium_shard_balance and inserts a new row into the wagers table. If not, it returns an error.
+Outcome Resolution (Scheduled Job #2): A second Cron Job runs every 10 seconds. It scans the predictions table for any active predictions where resolution_time has passed. For each one it finds:
+It calls the financial data API one last time to get the final price.
+It determines the outcome ('HIGHER' or 'LOWER') and updates the predictions table.
+It finds all wagers associated with that prediction.
+For each correct wager, it calculates the 2x payout and adds it to the user's orium_shard_balance in the wallets table.
+It updates the status of all wagers for that prediction to won or lost.
+This revised plan establishes the precise architecture and separation of concerns required to build the project as specified, using the chosen technology stack, without simplification.
+
+
+--------------------------------------------------------------------------------------------------------------------
+
+update as of  the  07/09/25 
+
+Orium.fun: Master Project Overview (Vanilla JS & Render Edition)
+
+1. CORE TECHNICAL ARCHITECTURE
+The entire system will be divided into three distinct, communicating parts, all hosted on Render.com.
+COMPONENT 1: THE FRONTEND (CLIENT-SIDE)
+Technology: Vanilla JavaScript, HTML, CSS.
+...
+COMPONENT 2: THE BACKEND (SERVER-SIDE)
+Technology: A Node.js Web Service hosted on Render.
+...
+COMPONENT 3: THE DATABASE
+Technology: A PostgreSQL database service hosted on Render.
+...
+COMPONENT 4: REAL-TIME COMMUNICATION LAYER
+Technology: A WebSocket implementation (using Socket.IO on the Node.js backend).
+...
+2. DETAILED DATABASE SCHEMA (THE BLUEPRINT)
+Table: users
+id (Primary Key, SERIAL)
+username (Unique, TEXT)
+email (Unique, TEXT)
+hashed_password (TEXT)
+created_at (TIMESTAMPTZ)
+is_verified (BOOLEAN, default FALSE)
+verification_token (TEXT, nullable)
+password_reset_token (TEXT, nullable)
+password_reset_expires (TIMESTAMPTZ, nullable)
+
+Table: wallets
+user_id (Foreign Key to users.id)
+hype_token_balance (Numeric, default 0)
+orium_shard_balance (Numeric, default 0)
+
+Table: matches (for Meme Stock Mayhem)
+id (Primary Key, SERIAL)
+start_price (Numeric)
+current_price (Numeric)
+status (Text: 'pending', 'active', 'completed')
+start_time (TIMESTAMPTZ)
+end_time (TIMESTAMPTZ)
+winning_faction (Text: 'BULLS', 'BEARS', NULL)
+bull_target_price (NUMERIC, nullable)
+bear_target_price (NUMERIC, nullable)
+
+Table: match_players
+match_id (Foreign Key to matches.id)
+user_id (Foreign Key to users.id)
+faction (Text: 'BULLS' or 'BEARS')
+tap_count (Integer, default 0)
+
+Table: predictions (for Crystal Ball)
+id (Primary Key, SERIAL)
+asset_name (TEXT)
+target_price (NUMERIC)
+question_time (TIMESTAMPTZ)
+resolution_time (TIMESTAMPTZ)
+final_price (NUMERIC, nullable)
+outcome (Text: 'HIGHER', 'LOWER', NULL)
+status (Text: 'active', 'resolving', 'completed')
+
+Table: wagers
+id (Primary Key, SERIAL)
+prediction_id (Foreign Key to predictions.id)
+user_id (Foreign Key to users.id)
+wager_amount (NUMERIC)
+choice (Text: 'HIGHER' or 'LOWER')
+payout (Numeric, default 0)
+status (Text: 'placed', 'won', 'lost')
+...
