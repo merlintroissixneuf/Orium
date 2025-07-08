@@ -1,6 +1,8 @@
-// index.js
+// index.js (Complete)
 require('dotenv').config();
 const express = require('express');
+const http = require('http'); // Import http module
+const { Server } = require("socket.io"); // Import Server class from socket.io
 const bcrypt = require('bcrypt');
 const path = require('path');
 const jwt = require('jsonwebtoken');
@@ -9,6 +11,9 @@ const crypto = require('crypto');
 const { Pool } = require('pg');
 
 const app = express();
+const server = http.createServer(app); // Create an HTTP server from the Express app
+const io = new Server(server); // Attach socket.io to the HTTP server
+
 const port = process.env.PORT || 3000;
 
 app.use(express.json());
@@ -19,6 +24,14 @@ const pool = new Pool({
   ssl: {
     rejectUnauthorized: false
   }
+});
+
+const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
+    }
 });
 
 // --- Server-side State ---
@@ -40,11 +53,26 @@ const verifyToken = (req, res, next) => {
     });
 };
 
+const socketAuthMiddleware = (socket, next) => {
+    // For real-time auth, the token is passed in the handshake
+    const token = socket.handshake.auth.token;
+    if (!token) {
+        return next(new Error("Authentication error: Token not provided"));
+    }
+    jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
+        if (err) {
+            return next(new Error("Authentication error: Invalid token"));
+        }
+        socket.user = user; // Attach user payload to the socket object
+        next();
+    });
+};
+
 // --- Helper Functions ---
 const createMatch = async (players) => {
     console.log('Creating match for players:', players.map(p => p.userId));
     try {
-        const end_time = new Date(Date.now() + 3 * 60000);
+        const end_time = new Date(Date.now() + 3 * 60000); // 3 minutes from now
         const matchQuery = `INSERT INTO matches (start_price, current_price, status, end_time) VALUES (100.00, 100.00, 'active', $1) RETURNING id;`;
         const matchResult = await pool.query(matchQuery, [end_time]);
         const matchId = matchResult.rows[0].id;
@@ -52,15 +80,18 @@ const createMatch = async (players) => {
 
         const shuffledPlayers = players.sort(() => 0.5 - Math.random());
         const bullCount = Math.ceil(shuffledPlayers.length / 2);
+
         const playerInsertPromises = shuffledPlayers.map((player, index) => {
             const faction = index < bullCount ? 'BULLS' : 'BEARS';
-            return pool.query(`INSERT INTO match_players (match_id, user_id, faction) VALUES ($1, $2, $3)`, [matchId, player.userId, faction]);
+            const playerQuery = `INSERT INTO match_players (match_id, user_id, faction) VALUES ($1, $2, $3);`;
+            return pool.query(playerQuery, [matchId, player.userId, faction]);
         });
         await Promise.all(playerInsertPromises);
         console.log(`All players for match ${matchId} have been inserted.`);
 
         players.forEach(player => {
-            if (player.userId > 0) { // Only update status for real players
+            // Bots might have negative or non-user IDs; only update real players
+            if (player.userId > 0) {
                 activeMatchStatus.set(player.userId, { status: 'found', matchId: matchId });
             }
         });
@@ -69,8 +100,61 @@ const createMatch = async (players) => {
     }
 };
 
+// --- Socket.IO Real-Time Logic ---
+io.use(socketAuthMiddleware); // Secure all incoming socket connections
+
+io.on('connection', (socket) => {
+    console.log(`User connected: ${socket.user.username} (Socket ID: ${socket.id})`);
+
+    socket.on('joinMatch', async ({ matchId }) => {
+        try {
+            const query = 'SELECT * FROM match_players WHERE match_id = $1 AND user_id = $2';
+            const { rows } = await pool.query(query, [matchId, socket.user.userId]);
+            const playerInfo = rows[0];
+
+            if (playerInfo) {
+                socket.join(matchId.toString());
+                console.log(`User ${socket.user.username} joined match room ${matchId}`);
+                socket.emit('matchJoined', { faction: playerInfo.faction });
+            } else {
+                socket.emit('error', { message: 'You are not a player in this match.' });
+            }
+        } catch (error) {
+            console.error('Error joining match room:', error);
+            socket.emit('error', { message: 'Server error while joining match.' });
+        }
+    });
+
+    socket.on('playerTap', async ({ matchId }) => {
+        try {
+            const playerQuery = 'SELECT faction FROM match_players WHERE match_id = $1 AND user_id = $2';
+            const { rows } = await pool.query(playerQuery, [matchId, socket.user.userId]);
+            const playerInfo = rows[0];
+
+            if (!playerInfo) return;
+
+            await pool.query('UPDATE match_players SET tap_count = tap_count + 1 WHERE match_id = $1 AND user_id = $2', [matchId, socket.user.userId]);
+            
+            const pressure = playerInfo.faction === 'BULLS' ? 0.01 : -0.01;
+
+            const priceUpdateQuery = 'UPDATE matches SET current_price = current_price + $1 WHERE id = $2 RETURNING current_price';
+            const priceResult = await pool.query(priceUpdateQuery, [pressure, matchId]);
+            const newPrice = priceResult.rows[0].current_price;
+
+            io.to(matchId.toString()).emit('priceUpdate', { newPrice });
+
+        } catch (error) {
+            console.error('Error processing player tap:', error);
+        }
+    });
+
+    socket.on('disconnect', () => {
+        console.log(`User disconnected: ${socket.user.username}`);
+    });
+});
+
 // --- API ROUTES ---
-// ... (All auth routes remain the same)
+
 app.post('/api/register', async (req, res) => {
     const { username, email, password } = req.body;
     if (!username || !email || !password) return res.status(400).json({ message: 'All fields are required.' });
@@ -150,7 +234,7 @@ app.post('/api/reset-password', async (req, res) => {
         const hashedPassword = await bcrypt.hash(password, salt);
         await pool.query('UPDATE users SET hashed_password = $1, password_reset_token = NULL, password_reset_expires = NULL WHERE id = $2', [hashedPassword, user.id]);
         res.json({ message: 'Password has been reset successfully.' });
-    } catch (error) {
+    } catch (error)_ {
         console.error(error);
         res.status(500).json({ message: 'Server error.' });
     }
@@ -168,20 +252,13 @@ app.get('/api/user/me', verifyToken, async (req, res) => {
             WHERE u.id = $1;
         `;
         const { rows } = await pool.query(query, [req.user.userId]);
-
-        if (rows.length === 0) {
-            return res.status(404).json({ message: "User not found." });
-        }
-
+        if (rows.length === 0) return res.status(404).json({ message: "User not found." });
         res.json(rows[0]);
-
     } catch (error) {
         console.error('Error fetching user data:', error);
         res.status(500).json({ message: 'Server error.' });
     }
 });
-
-// Matchmaking Routes
 app.post('/api/matchmaking/join', verifyToken, async (req, res) => {
     const userId = req.user.userId;
     if (matchmakingQueue.find(p => p.userId === userId) || activeMatchStatus.has(userId)) {
@@ -210,7 +287,6 @@ app.post('/api/matchmaking/join', verifyToken, async (req, res) => {
     }
     res.json({ message: 'You have joined the queue.' });
 });
-
 app.get('/api/matchmaking/status', verifyToken, (req, res) => {
     const userId = req.user.userId;
     const userStatus = activeMatchStatus.get(userId);
@@ -221,23 +297,17 @@ app.get('/api/matchmaking/status', verifyToken, (req, res) => {
         res.json({ status: 'waiting' });
     }
 });
-
-// === NEW: Leave Matchmaking Endpoint ===
 app.post('/api/matchmaking/leave', verifyToken, (req, res) => {
     const userId = req.user.userId;
     const playerIndex = matchmakingQueue.findIndex(p => p.userId === userId);
-
     if (playerIndex > -1) {
-        matchmakingQueue.splice(playerIndex, 1); // Remove player from queue
-        activeMatchStatus.delete(userId); // Remove player status
+        matchmakingQueue.splice(playerIndex, 1);
+        activeMatchStatus.delete(userId);
         console.log(`User ${userId} left the queue. Current queue size: ${matchmakingQueue.length}`);
-        
-        // If the queue is now empty, clear the timeout
         if (matchmakingQueue.length === 0) {
             clearTimeout(matchmakingTimer);
             matchmakingTimer = null;
         }
-
         return res.json({ message: "You have left the queue." });
     } else {
         return res.status(404).json({ message: "You were not in the queue." });
@@ -249,6 +319,7 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-app.listen(port, () => {
+// --- Server Startup ---
+server.listen(port, () => {
   console.log(`🚀 Server listening on port ${port}`);
 });

@@ -2,7 +2,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const mainContainer = document.querySelector('.container');
     let pollingInterval = null;
 
-    // --- Main View Rendering ---
     const fetchAndRenderLobby = async () => {
         const token = localStorage.getItem('authToken'); 
         if (!token) {
@@ -56,7 +55,6 @@ document.addEventListener('DOMContentLoaded', () => {
         attachLobbyListeners();
     };
     
-    // --- Lobby Event Listeners ---
     const attachLobbyListeners = () => {
         document.getElementById('logoutButton').addEventListener('click', () => {
             localStorage.removeItem('authToken');
@@ -78,25 +76,24 @@ document.addEventListener('DOMContentLoaded', () => {
                 if(response.ok) {
                     mayhemMessage.textContent = 'In queue, waiting...';
                     playButton.textContent = 'Cancel';
-                    playButton.style.borderColor = '#FF0000'; // Change button style to red
+                    playButton.style.borderColor = '#FF0000';
                     pollingInterval = setInterval(checkMatchmakingStatus, 2000);
                 } else {
                     const data = await response.json();
                     mayhemMessage.textContent = 'Error: ' + data.message;
                     mayhemMessage.className = 'error';
                 }
-            } else { // Handle Cancel logic
+            } else {
                 mayhemMessage.textContent = 'Leaving queue...';
-                const response = await fetch('/api/matchmaking/leave', {
+                await fetch('/api/matchmaking/leave', {
                     method: 'POST',
                     headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
                 });
                 clearInterval(pollingInterval);
                 pollingInterval = null;
-                const data = await response.json();
-                mayhemMessage.textContent = data.message;
+                mayhemMessage.textContent = "You have left the queue.";
                 playButton.textContent = 'Play';
-                playButton.style.borderColor = '#00FF00'; // Revert button style
+                playButton.style.borderColor = '#00FF00';
             }
         });
     };
@@ -107,11 +104,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
             });
             const data = await response.json();
+
             if (data.status === 'found') {
-                console.log('Match found!', data);
                 clearInterval(pollingInterval);
                 pollingInterval = null;
-                mainContainer.innerHTML = `<h2>Match Found!</h2><p>Entering Arena for Match #${data.matchId}...</p>`;
+                // Redirect to the arena page with the matchId
+                window.location.href = `/arena.html?matchId=${data.matchId}`;
             } else {
                 console.log('Still waiting for a match...');
             }
@@ -122,7 +120,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
     
-    // --- Auth View Rendering & Listeners (No changes below this line) ---
     const renderLoginView = () => {
         mainContainer.innerHTML = `
             <h2>Login</h2>

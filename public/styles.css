@@ -166,3 +166,41 @@ a:hover { text-decoration: underline; }
         width: 100%;
     }
 }
+/* --- New Arena Styles --- */
+.arena-container {
+    border-color: #FFFFFF;
+}
+.arena-header {
+    display: flex;
+    justify-content: space-between;
+    font-size: 1.2em;
+    padding-bottom: 1rem;
+    border-bottom: 2px solid #FFFFFF;
+}
+.chart-container {
+    height: 300px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin: 2rem 0;
+    border: 2px solid #555;
+}
+.price-display {
+    font-size: 3em;
+    color: #FFFFFF;
+}
+.price-display #priceTicker {
+    font-size: 0.5em;
+    color: #00FF00;
+    margin-left: 0.5rem;
+}
+.controls {
+    text-align: center;
+}
+#tapButton {
+    width: 200px;
+    height: 200px;
+    border-radius: 50%;
+    font-size: 2em;
+    border-width: 3px;
+}
