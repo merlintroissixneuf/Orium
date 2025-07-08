@@ -129,7 +129,6 @@ app.post('/api/reset-password', async (req, res) => {
         res.status(500).json({ message: 'Server error.' });
     }
 });
-
 app.post('/api/matchmaking/join', verifyToken, async (req, res) => {
     const userId = req.user.userId;
     if (matchmakingQueue.find(p => p.userId === userId)) {
@@ -145,7 +144,7 @@ app.post('/api/matchmaking/join', verifyToken, async (req, res) => {
     res.json({ message: `You have joined the queue. Waiting for ${MATCH_SIZE - matchmakingQueue.length} more players.` });
 });
 
-// === Secure Endpoint to Get User Data ===
+// ### This is the route that is missing on your server ###
 app.get('/api/user/me', verifyToken, async (req, res) => {
     try {
         const query = `
@@ -174,6 +173,7 @@ app.get('/api/user/me', verifyToken, async (req, res) => {
 
 
 // --- CATCH-ALL ROUTE ---
+// This must come AFTER all other API routes
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
