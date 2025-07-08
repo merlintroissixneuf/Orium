@@ -1,31 +1,38 @@
+// public/app.js
 document.addEventListener('DOMContentLoaded', () => {
     // Views
     const loginView = document.getElementById('loginView');
     const registerView = document.getElementById('registerView');
+    const forgotPasswordView = document.getElementById('forgotPasswordView');
 
     // Forms
     const loginForm = document.getElementById('loginForm');
     const registerForm = document.getElementById('registerForm');
+    const forgotPasswordForm = document.getElementById('forgotPasswordForm');
     
     // Links
     const showRegister = document.getElementById('showRegister');
     const showLogin = document.getElementById('showLogin');
+    const showForgotPassword = document.getElementById('showForgotPassword');
+    const showLoginFromForgot = document.getElementById('showLoginFromForgot');
 
     // Message Div
     const messageDiv = document.getElementById('message');
 
-    // View Toggling
-    showRegister.addEventListener('click', () => {
-        loginView.classList.add('hidden');
-        registerView.classList.remove('hidden');
+    function showView(viewToShow) {
+        [loginView, registerView, forgotPasswordView].forEach(view => {
+            view.classList.add('hidden');
+        });
+        viewToShow.classList.remove('hidden');
         messageDiv.textContent = '';
-    });
+        messageDiv.className = '';
+    }
 
-    showLogin.addEventListener('click', () => {
-        registerView.classList.add('hidden');
-        loginView.classList.remove('hidden');
-        messageDiv.textContent = '';
-    });
+    // View Toggling Listeners
+    showRegister.addEventListener('click', () => showView(registerView));
+    showLogin.addEventListener('click', () => showView(loginView));
+    showForgotPassword.addEventListener('click', () => showView(forgotPasswordView));
+    showLoginFromForgot.addEventListener('click', () => showView(loginView));
 
     // Register Form Submission
     registerForm.addEventListener('submit', async (event) => {
@@ -34,9 +41,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const email = document.getElementById('registerEmail').value;
         const password = document.getElementById('registerPassword').value;
         
-        messageDiv.textContent = '';
-        messageDiv.className = '';
-
         const response = await fetch('/api/register', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -44,14 +48,9 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         const data = await response.json();
         
-        if (response.ok) {
-            messageDiv.textContent = data.message;
-            messageDiv.className = 'success';
-            registerForm.reset();
-        } else {
-            messageDiv.textContent = 'Error: ' + data.message;
-            messageDiv.className = 'error';
-        }
+        messageDiv.textContent = data.message;
+        messageDiv.className = response.ok ? 'success' : 'error';
+        if (response.ok) registerForm.reset();
     });
 
     // Login Form Submission
@@ -59,9 +58,6 @@ document.addEventListener('DOMContentLoaded', () => {
         event.preventDefault();
         const email = document.getElementById('loginEmail').value;
         const password = document.getElementById('loginPassword').value;
-
-        messageDiv.textContent = '';
-        messageDiv.className = '';
 
         const response = await fetch('/api/login', {
             method: 'POST',
@@ -76,5 +72,21 @@ document.addEventListener('DOMContentLoaded', () => {
             messageDiv.textContent = 'Error: ' + data.message;
             messageDiv.className = 'error';
         }
+    });
+
+    // Forgot Password Form Submission
+    forgotPasswordForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const email = document.getElementById('forgotEmail').value;
+        
+        const response = await fetch('/api/forgot-password', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email }),
+        });
+        const data = await response.json();
+
+        messageDiv.textContent = data.message;
+        messageDiv.className = response.ok ? 'success' : 'error';
     });
 });
