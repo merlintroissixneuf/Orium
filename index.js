@@ -40,6 +40,7 @@ const botIntervals = new Map();
 const MATCH_SIZE = 10;
 const MATCHMAKING_TIMEOUT = 10000;
 const MATCH_DURATION_SECONDS = 60;
+const MAX_PRICE_SWING = 15.00; // Matches arena.js maxPriceSwing
 let matchmakingTimer = null;
 
 // Initialize bot users if they don't exist
@@ -105,7 +106,10 @@ const handleTap = async (matchId, userId, faction) => {
             return;
         }
         const pressure = faction === 'BULLS' ? 0.01 : -0.01;
-        const priceResult = await client.query('UPDATE matches SET current_price = current_price + $1 WHERE id = $2 RETURNING current_price', [pressure, matchId]);
+        const priceResult = await client.query(
+            'UPDATE matches SET current_price = GREATEST($1, LEAST($2, current_price + $3)) WHERE id = $4 RETURNING current_price',
+            [-MAX_PRICE_SWING, MAX_PRICE_SWING, pressure, matchId]
+        );
         if (priceResult.rows.length === 0) {
             console.error(`No match found for matchId: ${matchId}`);
             await client.query('ROLLBACK');
@@ -171,7 +175,7 @@ const createMatch = async (players, realPlayersInQueue) => {
             const interval = setInterval(() => {
                 console.log(`Bot ${bot.userId} (Faction: ${bot.faction}) is tapping in match ${matchId}.`);
                 handleTap(matchId, bot.userId, bot.faction);
-            }, 2000 + Math.random() * 3000);
+            }, 200 + Math.random() * 300); // Aggressive tapping: 200–500ms
             matchBotIntervals.push(interval);
         });
         if (matchBotIntervals.length > 0) {
