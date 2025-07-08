@@ -1,8 +1,7 @@
-// index.js (Complete)
 require('dotenv').config();
 const express = require('express');
-const http = require('http'); // Import http module
-const { Server } = require("socket.io"); // Import Server class from socket.io
+const http = require('http');
+const { Server } = require("socket.io");
 const bcrypt = require('bcrypt');
 const path = require('path');
 const jwt = require('jsonwebtoken');
@@ -11,8 +10,8 @@ const crypto = require('crypto');
 const { Pool } = require('pg');
 
 const app = express();
-const server = http.createServer(app); // Create an HTTP server from the Express app
-const io = new Server(server); // Attach socket.io to the HTTP server
+const server = http.createServer(app);
+const io = new Server(server);
 
 const port = process.env.PORT || 3000;
 
@@ -34,14 +33,12 @@ const transporter = nodemailer.createTransport({
     }
 });
 
-// --- Server-side State ---
 const matchmakingQueue = [];
 const activeMatchStatus = new Map();
 const MATCH_SIZE = 10;
 const MATCHMAKING_TIMEOUT = 10000;
 let matchmakingTimer = null;
 
-// --- Middleware ---
 const verifyToken = (req, res, next) => {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
@@ -54,7 +51,6 @@ const verifyToken = (req, res, next) => {
 };
 
 const socketAuthMiddleware = (socket, next) => {
-    // For real-time auth, the token is passed in the handshake
     const token = socket.handshake.auth.token;
     if (!token) {
         return next(new Error("Authentication error: Token not provided"));
@@ -63,24 +59,21 @@ const socketAuthMiddleware = (socket, next) => {
         if (err) {
             return next(new Error("Authentication error: Invalid token"));
         }
-        socket.user = user; // Attach user payload to the socket object
+        socket.user = user;
         next();
     });
 };
 
-// --- Helper Functions ---
 const createMatch = async (players) => {
     console.log('Creating match for players:', players.map(p => p.userId));
     try {
-        const end_time = new Date(Date.now() + 3 * 60000); // 3 minutes from now
+        const end_time = new Date(Date.now() + 3 * 60000);
         const matchQuery = `INSERT INTO matches (start_price, current_price, status, end_time) VALUES (100.00, 100.00, 'active', $1) RETURNING id;`;
         const matchResult = await pool.query(matchQuery, [end_time]);
         const matchId = matchResult.rows[0].id;
         console.log(`Match ${matchId} created in the database.`);
-
         const shuffledPlayers = players.sort(() => 0.5 - Math.random());
         const bullCount = Math.ceil(shuffledPlayers.length / 2);
-
         const playerInsertPromises = shuffledPlayers.map((player, index) => {
             const faction = index < bullCount ? 'BULLS' : 'BEARS';
             const playerQuery = `INSERT INTO match_players (match_id, user_id, faction) VALUES ($1, $2, $3);`;
@@ -88,9 +81,7 @@ const createMatch = async (players) => {
         });
         await Promise.all(playerInsertPromises);
         console.log(`All players for match ${matchId} have been inserted.`);
-
         players.forEach(player => {
-            // Bots might have negative or non-user IDs; only update real players
             if (player.userId > 0) {
                 activeMatchStatus.set(player.userId, { status: 'found', matchId: matchId });
             }
@@ -100,18 +91,15 @@ const createMatch = async (players) => {
     }
 };
 
-// --- Socket.IO Real-Time Logic ---
-io.use(socketAuthMiddleware); // Secure all incoming socket connections
+io.use(socketAuthMiddleware);
 
 io.on('connection', (socket) => {
     console.log(`User connected: ${socket.user.username} (Socket ID: ${socket.id})`);
-
     socket.on('joinMatch', async ({ matchId }) => {
         try {
             const query = 'SELECT * FROM match_players WHERE match_id = $1 AND user_id = $2';
             const { rows } = await pool.query(query, [matchId, socket.user.userId]);
             const playerInfo = rows[0];
-
             if (playerInfo) {
                 socket.join(matchId.toString());
                 console.log(`User ${socket.user.username} joined match room ${matchId}`);
@@ -124,36 +112,26 @@ io.on('connection', (socket) => {
             socket.emit('error', { message: 'Server error while joining match.' });
         }
     });
-
     socket.on('playerTap', async ({ matchId }) => {
         try {
             const playerQuery = 'SELECT faction FROM match_players WHERE match_id = $1 AND user_id = $2';
             const { rows } = await pool.query(playerQuery, [matchId, socket.user.userId]);
             const playerInfo = rows[0];
-
             if (!playerInfo) return;
-
             await pool.query('UPDATE match_players SET tap_count = tap_count + 1 WHERE match_id = $1 AND user_id = $2', [matchId, socket.user.userId]);
-            
             const pressure = playerInfo.faction === 'BULLS' ? 0.01 : -0.01;
-
             const priceUpdateQuery = 'UPDATE matches SET current_price = current_price + $1 WHERE id = $2 RETURNING current_price';
             const priceResult = await pool.query(priceUpdateQuery, [pressure, matchId]);
             const newPrice = priceResult.rows[0].current_price;
-
             io.to(matchId.toString()).emit('priceUpdate', { newPrice });
-
         } catch (error) {
             console.error('Error processing player tap:', error);
         }
     });
-
     socket.on('disconnect', () => {
         console.log(`User disconnected: ${socket.user.username}`);
     });
 });
-
-// --- API ROUTES ---
 
 app.post('/api/register', async (req, res) => {
     const { username, email, password } = req.body;
@@ -213,7 +191,7 @@ app.post('/api/forgot-password', async (req, res) => {
         const user = rows[0];
         if (!user) return res.json({ message: 'If a user with that email exists, a password reset link has been sent.' });
         const resetToken = crypto.randomBytes(32).toString('hex');
-        const expires = new Date(Date.now() + 3600000); // 1 hour
+        const expires = new Date(Date.now() + 3600000);
         await pool.query('UPDATE users SET password_reset_token = $1, password_reset_expires = $2 WHERE email = $3', [resetToken, expires, email]);
         const resetUrl = `https://${req.headers.host}/reset-password.html?token=${resetToken}`;
         await transporter.sendMail({ from: `"Orium.fun" <${process.env.EMAIL_USER}>`, to: email, subject: 'Password Reset Request', html: `<b>You requested a password reset. Click the link to set a new password:</b> <a href="${resetUrl}">${resetUrl}</a>` });
@@ -234,7 +212,7 @@ app.post('/api/reset-password', async (req, res) => {
         const hashedPassword = await bcrypt.hash(password, salt);
         await pool.query('UPDATE users SET hashed_password = $1, password_reset_token = NULL, password_reset_expires = NULL WHERE id = $2', [hashedPassword, user.id]);
         res.json({ message: 'Password has been reset successfully.' });
-    } catch (error)_ {
+    } catch (error) { // This was the line with the typo
         console.error(error);
         res.status(500).json({ message: 'Server error.' });
     }
@@ -314,12 +292,10 @@ app.post('/api/matchmaking/leave', verifyToken, (req, res) => {
     }
 });
 
-// --- CATCH-ALL ROUTE ---
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// --- Server Startup ---
 server.listen(port, () => {
   console.log(`🚀 Server listening on port ${port}`);
 });
