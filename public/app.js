@@ -1,4 +1,3 @@
-// public/app.js
 document.addEventListener('DOMContentLoaded', () => {
     // Views
     const loginView = document.getElementById('loginView');
@@ -35,16 +34,20 @@ document.addEventListener('DOMContentLoaded', () => {
         const email = document.getElementById('registerEmail').value;
         const password = document.getElementById('registerPassword').value;
         
+        messageDiv.textContent = '';
+        messageDiv.className = '';
+
         const response = await fetch('/api/register', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ username, email, password }),
         });
         const data = await response.json();
+        
         if (response.ok) {
-            messageDiv.textContent = 'Success! You can now log in.';
+            messageDiv.textContent = data.message;
             messageDiv.className = 'success';
-            showLogin.click(); // Switch to login view
+            registerForm.reset();
         } else {
             messageDiv.textContent = 'Error: ' + data.message;
             messageDiv.className = 'error';
@@ -57,6 +60,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const email = document.getElementById('loginEmail').value;
         const password = document.getElementById('loginPassword').value;
 
+        messageDiv.textContent = '';
+        messageDiv.className = '';
+
         const response = await fetch('/api/login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -64,7 +70,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         const data = await response.json();
         if (response.ok) {
-            // Store the token and update UI
             localStorage.setItem('authToken', data.token);
             document.querySelector('.container').innerHTML = `<h2>Welcome!</h2><p>You are logged in.</p>`;
         } else {
