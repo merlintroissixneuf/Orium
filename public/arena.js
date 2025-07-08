@@ -1,22 +1,18 @@
 document.addEventListener('DOMContentLoaded', () => {
-    // --- UI Elements ---
+    // UI Elements
     const factionIndicator = document.getElementById('factionIndicator');
     const priceValue = document.getElementById('priceValue');
     const tapButton = document.getElementById('tapButton');
     const timerDisplay = document.getElementById('timer');
-    const bullsScoreDisplay = document.querySelector('#bullsScore .score-text');
-    const bearsScoreDisplay = document.querySelector('#bearsScore .score-text');
+    const bullsScoreDisplay = document.querySelector('#bullsScore');
+    const bearsScoreDisplay = document.querySelector('#bearsScore');
     const bullsFill = document.getElementById('bullsFill');
     const bearsFill = document.getElementById('bearsFill');
-    const bullsTargetDisplay = document.getElementById('bullsTarget');
-    const bearsTargetDisplay = document.getElementById('bearsTarget');
 
-    // --- State ---
-    let bullTargetPrice = 0;
-    let bearTargetPrice = 0;
-    let startPrice = 150;
-
-    // --- Connection ---
+    // State
+    let startPrice = 150; // Default, will be updated by server
+    
+    // Connection
     const urlParams = new URLSearchParams(window.location.search);
     const matchId = urlParams.get('matchId');
     const token = localStorage.getItem('authToken');
@@ -34,18 +30,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     tapButton.addEventListener('click', () => socket.emit('playerTap', { matchId }) );
 
-    // --- Event Listeners ---
+    // Event Listeners
     socket.on('matchJoined', (data) => {
         factionIndicator.textContent = `FACTION: ${data.faction}`;
-        factionIndicator.style.color = data.faction === 'BULLS' ? '#00FF00' : '#FF0000';
-    });
-
-    socket.on('matchData', (data) => {
-        bullTargetPrice = parseFloat(data.bullTarget);
-        bearTargetPrice = parseFloat(data.bearTarget);
         startPrice = parseFloat(data.startPrice);
-        bullsTargetDisplay.textContent = `TARGET: ${bullTargetPrice.toFixed(2)}`;
-        bearsTargetDisplay.textContent = `TARGET: ${bearTargetPrice.toFixed(2)}`;
     });
     
     socket.on('gameStateUpdate', (data) => {
@@ -53,11 +41,13 @@ document.addEventListener('DOMContentLoaded', () => {
         bullsScoreDisplay.textContent = `BULLS: ${data.bullTaps || 0}`;
         bearsScoreDisplay.textContent = `BEARS: ${data.bearTaps || 0}`;
 
-        // Update liquid fill
-        const bullProgress = Math.min(100, (Math.max(0, data.newPrice - startPrice) / (bullTargetPrice - startPrice)) * 100);
-        const bearProgress = Math.min(100, (Math.max(0, startPrice - data.newPrice) / (startPrice - bearTargetPrice)) * 100);
-        bullsFill.style.height = `${bullProgress}%`;
-        bearsFill.style.height = `${bearProgress}%`;
+        const priceChange = data.newPrice - startPrice;
+        // Calculate fill percentage based on a +/- $5 range for a full bar
+        const maxChange = 5; 
+        const fillPercentage = (priceChange / maxChange) * 50;
+
+        bullsFill.style.height = `${50 + fillPercentage}%`;
+        bearsFill.style.height = `${50 - fillPercentage}%`;
     });
 
     socket.on('timeUpdate', (data) => {
@@ -69,7 +59,6 @@ document.addEventListener('DOMContentLoaded', () => {
     socket.on('matchEnd', (data) => {
         tapButton.disabled = true;
         tapButton.textContent = 'GAME OVER';
-        document.querySelector('.container').style.borderColor = '#FF0000';
     });
 
     socket.on('connect_error', (err) => { window.location.href = '/'; });

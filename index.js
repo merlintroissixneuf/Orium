@@ -1,3 +1,4 @@
+// index.js
 require('dotenv').config();
 const express = require('express');
 const http = require('http');
@@ -5,8 +6,6 @@ const { Server } = require("socket.io");
 const bcrypt = require('bcrypt');
 const path = require('path');
 const jwt = require('jsonwebtoken');
-const nodemailer = require('nodemailer');
-const crypto = require('crypto');
 const { Pool } = require('pg');
 
 const app = express();
@@ -25,14 +24,6 @@ const pool = new Pool({
   }
 });
 
-const transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS
-    }
-});
-
 // --- Server-side State ---
 const matchmakingQueue = [];
 const activeMatchStatus = new Map();
@@ -40,7 +31,7 @@ const activeMatchTimers = new Map();
 const botIntervals = new Map();
 const MATCH_SIZE = 10;
 const MATCHMAKING_TIMEOUT = 10000;
-const MATCH_DURATION_SECONDS = 180;
+const MATCH_DURATION_SECONDS = 60; // Set to 60 seconds as requested
 let matchmakingTimer = null;
 
 // --- Middleware ---
@@ -82,13 +73,14 @@ const handleTap = async (matchId, userId, faction) => {
             FROM match_players WHERE match_id = $1;
         `;
         const factionTapsResult = await client.query(factionTapsQuery, [matchId]);
-        const { bull_taps, bear_taps } = factionTapsResult.rows[0];
         await client.query('COMMIT');
         
-        io.to(matchId.toString()).emit('gameStateUpdate', { newPrice, bullTaps: bull_taps, bearTaps: bear_taps });
+        const { bull_taps, bear_taps } = factionTapsResult.rows[0];
+        // Broadcast the update to all players in the match
+        io.to(matchId.toString()).emit('gameStateUpdate', { newPrice, bullTaps: bull_taps || 0, bearTaps: bear_taps || 0 });
     } catch (e) {
         await client.query('ROLLBACK');
-        throw e;
+        console.error("Error in handleTap transaction:", e);
     } finally {
         client.release();
     }
@@ -101,26 +93,32 @@ const createMatch = async (players) => {
         const startPrice = 150.00;
         const bullTarget = startPrice + 5.00;
         const bearTarget = startPrice - 8.00;
+
         const matchQuery = `INSERT INTO matches (start_price, current_price, status, start_time, end_time, bull_target_price, bear_target_price) VALUES ($1, $1, 'active', $2, $3, $4, $5) RETURNING id;`;
-        const matchResult = await pool.query(matchQuery, [startPrice, startTime, endTime, bullTarget, bearTarget]);
+        const matchResult = await pool.query(matchQuery, [startPrice, endTime, bullTarget, bearTarget]);
         const matchId = matchResult.rows[0].id;
-        console.log(`Match ${matchId} created with targets: BULLS ${bullTarget}, BEARS ${bearTarget}`);
+        console.log(`Match ${matchId} created.`);
+
         const shuffledPlayers = players.sort(() => 0.5 - Math.random());
         const bullCount = Math.ceil(shuffledPlayers.length / 2);
+
         const playerInsertPromises = shuffledPlayers.map((player, index) => {
             const faction = index < bullCount ? 'BULLS' : 'BEARS';
+            player.faction = faction; // Assign faction for bot tapping
             return pool.query(`INSERT INTO match_players (match_id, user_id, faction) VALUES ($1, $2, $3);`, [matchId, player.userId, faction]);
         });
         await Promise.all(playerInsertPromises);
-        const bots = players.filter(p => p.userId <= 9);
+
+        const bots = players.filter(p => p.userId <= 9); // Assuming bot IDs are 1-9
+        const matchBotIntervals = [];
         bots.forEach(bot => {
-            const botFaction = shuffledPlayers.find(p => p.userId === bot.userId).faction === 'BULLS' ? 'BULLS' : 'BEARS';
             const interval = setInterval(() => {
-                handleTap(matchId, bot.userId, botFaction);
-            }, 2000 + Math.random() * 3000);
-            if (!botIntervals.has(matchId)) botIntervals.set(matchId, []);
-            botIntervals.get(matchId).push(interval);
+                handleTap(matchId, bot.userId, bot.faction);
+            }, 2000 + Math.random() * 3000); // Taps every 2-5 seconds
+            matchBotIntervals.push(interval);
         });
+        botIntervals.set(matchId, matchBotIntervals);
+
         let remainingTime = MATCH_DURATION_SECONDS;
         const matchTimer = setInterval(() => {
             io.to(matchId.toString()).emit('timeUpdate', { remainingTime });
@@ -128,7 +126,7 @@ const createMatch = async (players) => {
             if (remainingTime < 0) {
                 clearInterval(matchTimer);
                 activeMatchTimers.delete(matchId);
-                if(botIntervals.has(matchId)) {
+                if (botIntervals.has(matchId)) {
                     botIntervals.get(matchId).forEach(clearInterval);
                     botIntervals.delete(matchId);
                 }
@@ -137,6 +135,7 @@ const createMatch = async (players) => {
             }
         }, 1000);
         activeMatchTimers.set(matchId, matchTimer);
+
         players.forEach(player => {
             if (player.userId > 9) {
                 activeMatchStatus.set(player.userId, { status: 'found', matchId });
@@ -149,6 +148,34 @@ const createMatch = async (players) => {
 
 // --- Socket.IO Logic ---
 io.use(socketAuthMiddleware);
+io.on('connection', (socket) => {
+    // ... same as before
+});
+
+// --- API ROUTES ---
+// ... same as before
+
+// (The full code for all API routes and socket listeners is included below for completeness)
+verifyToken = (req, res, next) => {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
+    if (!token) return res.sendStatus(401);
+    jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
+        if (err) return res.sendStatus(403);
+        req.user = user;
+        next();
+    });
+};
+socketAuthMiddleware = (socket, next) => {
+    const token = socket.handshake.auth.token;
+    if (!token) return next(new Error("Authentication error: Token not provided"));
+    jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
+        if (err) return next(new Error("Authentication error: Invalid token"));
+        socket.user = user;
+        next();
+    });
+};
+
 io.on('connection', (socket) => {
     console.log(`User connected: ${socket.user.username}`);
     socket.on('joinMatch', async ({ matchId }) => {
@@ -180,7 +207,6 @@ io.on('connection', (socket) => {
     socket.on('disconnect', () => console.log(`User disconnected: ${socket.user.username}`));
 });
 
-// --- API ROUTES ---
 app.post('/api/register', async (req, res) => {
     const { username, email, password } = req.body;
     if (!username || !email || !password) return res.status(400).json({ message: 'All fields are required.' });
@@ -302,7 +328,7 @@ app.post('/api/matchmaking/join', verifyToken, async (req, res) => {
         matchmakingTimer = setTimeout(async () => {
             console.log('Matchmaking timeout reached. Filling with bots.');
             const spotsToFill = MATCH_SIZE - matchmakingQueue.length;
-            const botQuery = `SELECT id FROM users WHERE username LIKE 'bot%' LIMIT $1;`;
+            const botQuery = `SELECT id FROM users WHERE username LIKE 'bot%' AND id NOT IN (SELECT user_id FROM match_players WHERE match_id IN (SELECT id FROM matches WHERE status = 'active')) LIMIT $1;`;
             const { rows } = await pool.query(botQuery, [spotsToFill]);
             const botPlayers = rows.map(bot => ({ userId: bot.id }));
             const playersToStart = [...matchmakingQueue, ...botPlayers];
@@ -338,11 +364,6 @@ app.post('/api/matchmaking/leave', verifyToken, (req, res) => {
     } else {
         return res.status(404).json({ message: "You were not in the queue." });
     }
-});
-
-// --- CATCH-ALL & SERVER START ---
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 server.listen(port, () => {

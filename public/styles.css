@@ -259,3 +259,81 @@ a:hover { text-decoration: underline; }
     opacity: 0.7;
     margin-top: 0.5rem;
 }
+/* --- Arena Styles --- */
+.arena-container {
+    position: relative; /* Needed for positioning the fill layers */
+    border-color: #FFFFFF;
+    padding: 0; /* Remove padding to allow fill to touch edges */
+    overflow: hidden; /* Hide fill overflow */
+}
+.fill-background {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 50%; /* Each starts at 50% */
+    transition: height 0.3s ease-out;
+}
+#bullsFill {
+    background-color: #00FF00;
+    bottom: 0; /* Aligns to the bottom */
+}
+#bearsFill {
+    background-color: #FF0000;
+    top: 0; /* Aligns to the top */
+}
+.arena-foreground {
+    position: relative;
+    z-index: 2; /* Make sure content is above the fill */
+    padding: 2rem; /* Add padding here instead of the container */
+    mix-blend-mode: difference; /* This makes text and borders invert color */
+    color: white;
+}
+
+.arena-header {
+    display: flex;
+    justify-content: space-between;
+    font-size: 1.2em;
+    padding-bottom: 1rem;
+    border-bottom: 2px solid #FFFFFF;
+}
+.faction-scores {
+    display: flex;
+    justify-content: space-around;
+    margin-top: 1.5rem;
+    font-size: 1em;
+}
+.score-box {
+    padding: 0.5rem 1rem;
+    border: 2px solid #FFFFFF;
+}
+.chart-container {
+    height: 250px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin: 1.5rem 0;
+}
+.price-display {
+    font-size: 3em;
+    text-shadow: 3px 3px #000;
+}
+.price-display #priceTicker {
+    font-size: 0.5em;
+    margin-left: 0.5rem;
+    text-shadow: none;
+}
+.controls {
+    text-align: center;
+}
+#tapButton {
+    width: 200px;
+    height: 100px;
+    font-size: 2em;
+    border: 3px solid #FFFFFF;
+    background-color: #333333;
+    color: #FFFFFF;
+}
+#tapButton:active {
+    background-color: #FFFFFF !important;
+    color: #000000 !important;
+}
