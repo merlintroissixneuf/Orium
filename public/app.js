@@ -32,7 +32,7 @@ document.addEventListener('DOMContentLoaded', () => {
     showRegister.addEventListener('click', () => showView(registerView));
     showLogin.addEventListener('click', () => showView(loginView));
     showForgotPassword.addEventListener('click', () => showView(forgotPasswordView));
-    showLoginFromForgot.addEventListener('click', () => showView(loginView));
+    showLoginFromForgot.addEventListener('click', () => showView(loginVew));
 
     // Register Form Submission
     registerForm.addEventListener('submit', async (event) => {
@@ -48,6 +48,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         const data = await response.json();
         
+        // This message now includes the "(and spam folder)" text
         messageDiv.textContent = data.message;
         messageDiv.className = response.ok ? 'success' : 'error';
         if (response.ok) registerForm.reset();
