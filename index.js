@@ -1,4 +1,3 @@
-// index.js (with more bot logging)
 require('dotenv').config();
 const express = require('express');
 const http = require('http');
@@ -6,6 +5,8 @@ const { Server } = require("socket.io");
 const bcrypt = require('bcrypt');
 const path = require('path');
 const jwt = require('jsonwebtoken');
+const nodemailer = require('nodemailer'); // THIS LINE WAS MISSING
+const crypto = require('crypto');
 const { Pool } = require('pg');
 
 const app = express();
@@ -14,6 +15,7 @@ const io = new Server(server);
 
 const port = process.env.PORT || 3000;
 
+// (The rest of the file is correct and remains the same)
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -24,7 +26,14 @@ const pool = new Pool({
   }
 });
 
-// --- Server-side State & Config ---
+const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
+    }
+});
+
 const matchmakingQueue = [];
 const activeMatchStatus = new Map();
 const activeMatchTimers = new Map();
@@ -34,8 +43,6 @@ const MATCHMAKING_TIMEOUT = 10000;
 const MATCH_DURATION_SECONDS = 60;
 let matchmakingTimer = null;
 
-// --- Middleware & Helpers ---
-// (All helper functions and middleware are unchanged, but included below for completeness)
 const verifyToken = (req, res, next) => {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
@@ -95,7 +102,6 @@ const createMatch = async (players, realPlayersInQueue) => {
 
         const shuffledPlayers = players.sort(() => 0.5 - Math.random());
         const bullCount = Math.ceil(shuffledPlayers.length / 2);
-
         for (const [index, player] of shuffledPlayers.entries()) {
             player.faction = index < bullCount ? 'BULLS' : 'BEARS';
             await pool.query(`INSERT INTO match_players (match_id, user_id, faction) VALUES ($1, $2, $3);`, [matchId, player.userId, player.faction]);
@@ -145,9 +151,6 @@ const createMatch = async (players, realPlayersInQueue) => {
     }
 };
 
-// --- Socket.IO & API Routes ---
-// ... (The rest of the file is unchanged, but the full code is below)
-const transporter = nodemailer.createTransport({ service: 'gmail', auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS }});
 io.use(socketAuthMiddleware);
 io.on('connection', (socket) => {
     console.log(`User connected: ${socket.user.username}`);
@@ -165,6 +168,7 @@ io.on('connection', (socket) => {
     });
     socket.on('disconnect', () => console.log(`User disconnected: ${socket.user.username}`));
 });
+
 app.post('/api/register', async (req, res) => {
     const { username, email, password } = req.body;
     if (!username || !email || !password) return res.status(400).json({ message: 'All fields are required.' });
