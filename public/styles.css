@@ -1,0 +1,66 @@
+body { 
+    background-color: #000000; 
+    color: #FFFFFF; 
+    font-family: 'Press Start 2P', cursive; 
+    display: flex; 
+    justify-content: center; 
+    align-items: center; 
+    height: 100vh; 
+    margin: 0;
+    font-size: 0.8em;
+}
+.container { 
+    background-color: #000000; 
+    padding: 2rem; 
+    border: 3px solid #00FF00;
+    width: 350px; 
+}
+h1, h2 { 
+    text-align: center; 
+    color: #00FF00; 
+    font-size: 1.5em;
+    margin-bottom: 2rem;
+}
+p {
+    line-height: 1.5;
+}
+input { 
+    width: 100%; 
+    padding: 12px; 
+    margin-bottom: 1rem; 
+    border: 1px solid #FFFFFF; 
+    background-color: #000000; 
+    color: #FFFFFF; 
+    box-sizing: border-box;
+    font-family: 'Press Start 2P', cursive;
+}
+input::placeholder {
+    color: #cccccc;
+    opacity: 0.6;
+}
+button { 
+    width: 100%; 
+    padding: 12px; 
+    border: 1px solid #00FF00; 
+    background-color: #00FF00; 
+    color: #000000; 
+    font-family: 'Press Start 2P', cursive;
+    font-weight: bold; 
+    cursor: pointer; 
+}
+button:hover {
+    background-color: #000000;
+    color: #00FF00;
+}
+#message { 
+    margin-top: 1rem; 
+    text-align: center; 
+    font-weight: bold; 
+    line-height: 1.5;
+}
+.toggle-link { text-align: center; margin-top: 1rem; font-size: 0.7em; }
+a { color: #00FF00; cursor: pointer; text-decoration: none; }
+a:hover { text-decoration: underline; }
+.hidden { display: none; }
+.success { color: #00FF00; }
+.error { color: #FF0000; }
