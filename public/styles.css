@@ -222,3 +222,40 @@ a:hover { text-decoration: underline; }
     border-color: #FF0000;
     color: #FF0000;
 }
+/* Additions for liquid fill effect */
+.score-box {
+    position: relative; /* Needed for the fill effect */
+    overflow: hidden; /* Hide the overflow from the fill div */
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 1rem;
+}
+.score-fill {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 0%; /* Starts at 0, controlled by JS */
+    transition: height 0.2s ease-out;
+    z-index: 1;
+}
+#bullsFill {
+    background-color: #00FF00;
+}
+#bearsFill {
+    background-color: #FF0000;
+}
+.score-text {
+    position: relative;
+    z-index: 2; /* Ensure text is above the fill */
+    mix-blend-mode: difference; /* Makes text visible against the fill */
+}
+.score-target {
+    position: relative;
+    z-index: 2;
+    font-size: 0.6em;
+    opacity: 0.7;
+    margin-top: 0.5rem;
+}

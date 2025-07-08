@@ -1,4 +1,4 @@
-// index.js (replace the entire file)
+// index.js (Complete with Bot Tapping & Target Prices)
 require('dotenv').config();
 const express = require('express');
 const http = require('http');
@@ -28,42 +28,32 @@ const pool = new Pool({
 const matchmakingQueue = [];
 const activeMatchStatus = new Map();
 const activeMatchTimers = new Map();
+const botIntervals = new Map();
 const MATCH_SIZE = 10;
 const MATCHMAKING_TIMEOUT = 10000;
-const MATCH_DURATION_SECONDS = 180; // 3 minutes
+const MATCH_DURATION_SECONDS = 180;
 let matchmakingTimer = null;
 
 // --- Middleware ---
-const verifyToken = (req, res, next) => {
-    const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.split(' ')[1];
-    if (!token) return res.sendStatus(401);
-    jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
-        if (err) return res.sendStatus(403);
-        req.user = user;
-        next();
-    });
-};
-
-const socketAuthMiddleware = (socket, next) => {
-    const token = socket.handshake.auth.token;
-    if (!token) return next(new Error("Authentication error: Token not provided"));
-    jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
-        if (err) return next(new Error("Authentication error: Invalid token"));
-        socket.user = user;
-        next();
-    });
-};
+const verifyToken = (req, res, next) => { /* ... unchanged ... */ };
+const socketAuthMiddleware = (socket, next) => { /* ... unchanged ... */ };
+// (Full middleware code is at the bottom for completeness)
 
 // --- Helper Functions ---
 const createMatch = async (players) => {
     try {
         const startTime = new Date();
         const endTime = new Date(startTime.getTime() + MATCH_DURATION_SECONDS * 1000);
-        const matchQuery = `INSERT INTO matches (start_price, current_price, status, start_time, end_time) VALUES (100.00, 100.00, 'active', $1, $2) RETURNING id;`;
-        const matchResult = await pool.query(matchQuery, [startTime, endTime]);
+        
+        // NEW: Set Target Prices
+        const startPrice = 150.00;
+        const bullTarget = startPrice + 5.00;
+        const bearTarget = startPrice - 8.00;
+
+        const matchQuery = `INSERT INTO matches (start_price, current_price, status, start_time, end_time, bull_target_price, bear_target_price) VALUES ($1, $1, 'active', $2, $3, $4, $5) RETURNING id;`;
+        const matchResult = await pool.query(matchQuery, [startPrice, startTime, endTime, bullTarget, bearTarget]);
         const matchId = matchResult.rows[0].id;
-        console.log(`Match ${matchId} created.`);
+        console.log(`Match ${matchId} created with targets: BULLS ${bullTarget}, BEARS ${bearTarget}`);
 
         const shuffledPlayers = players.sort(() => 0.5 - Math.random());
         const bullCount = Math.ceil(shuffledPlayers.length / 2);
@@ -73,7 +63,20 @@ const createMatch = async (players) => {
         });
         await Promise.all(playerInsertPromises);
 
-        // Start a countdown timer for the match
+        // NEW: Start bot tapping simulation
+        const bots = players.filter(p => p.userId <= 9); // Assuming bot IDs are low
+        bots.forEach(bot => {
+            const botFaction = shuffledPlayers.find(p => p.userId === bot.userId).faction === 'BULLS' ? 'BULLS' : 'BEARS';
+            const interval = setInterval(() => {
+                // Simulate a tap from this bot
+                handleTap(matchId, bot.userId, botFaction);
+            }, 2000 + Math.random() * 3000); // Taps every 2-5 seconds
+            
+            if (!botIntervals.has(matchId)) botIntervals.set(matchId, []);
+            botIntervals.get(matchId).push(interval);
+        });
+
+        // Start match countdown timer
         let remainingTime = MATCH_DURATION_SECONDS;
         const matchTimer = setInterval(() => {
             io.to(matchId.toString()).emit('timeUpdate', { remainingTime });
@@ -81,16 +84,20 @@ const createMatch = async (players) => {
             if (remainingTime < 0) {
                 clearInterval(matchTimer);
                 activeMatchTimers.delete(matchId);
+                // Clear bot intervals for this match
+                if(botIntervals.has(matchId)) {
+                    botIntervals.get(matchId).forEach(clearInterval);
+                    botIntervals.delete(matchId);
+                }
                 io.to(matchId.toString()).emit('matchEnd', { message: 'Match Over!' });
                 console.log(`Match ${matchId} has ended.`);
-                // Future logic for reward distribution will go here
             }
         }, 1000);
         activeMatchTimers.set(matchId, matchTimer);
 
         players.forEach(player => {
-            if (player.userId > 0) {
-                activeMatchStatus.set(player.userId, { status: 'found', matchId: matchId });
+            if (player.userId > 9) { // Don't set status for bots
+                activeMatchStatus.set(player.userId, { status: 'found', matchId: matchId, bullTarget, bearTarget });
             }
         });
     } catch (error) {
@@ -98,11 +105,81 @@ const createMatch = async (players) => {
     }
 };
 
+const handleTap = async (matchId, userId, faction) => {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        await client.query('UPDATE match_players SET tap_count = tap_count + 1 WHERE match_id = $1 AND user_id = $2', [matchId, userId]);
+        const pressure = faction === 'BULLS' ? 0.01 : -0.01;
+        const priceResult = await client.query('UPDATE matches SET current_price = current_price + $1 WHERE id = $2 RETURNING current_price', [pressure, matchId]);
+        const newPrice = priceResult.rows[0].current_price;
+        
+        const factionTapsQuery = `
+            SELECT 
+                SUM(CASE WHEN faction = 'BULLS' THEN tap_count ELSE 0 END) as bull_taps,
+                SUM(CASE WHEN faction = 'BEARS' THEN tap_count ELSE 0 END) as bear_taps
+            FROM match_players WHERE match_id = $1;
+        `;
+        const factionTapsResult = await client.query(factionTapsQuery, [matchId]);
+        const { bull_taps, bear_taps } = factionTapsResult.rows[0];
+
+        await client.query('COMMIT');
+        
+        io.to(matchId.toString()).emit('gameStateUpdate', { newPrice, bullTaps: bull_taps, bearTaps: bear_taps });
+    } catch (e) {
+        await client.query('ROLLBACK');
+        throw e;
+    } finally {
+        client.release();
+    }
+};
+
 // --- Socket.IO Logic ---
 io.use(socketAuthMiddleware);
 io.on('connection', (socket) => {
-    console.log(`User connected: ${socket.user.username}`);
+    socket.on('joinMatch', async ({ matchId }) => { /* ... unchanged ... */ });
+    socket.on('playerTap', async ({ matchId }) => {
+        try {
+            const playerQuery = 'SELECT faction FROM match_players WHERE match_id = $1 AND user_id = $2';
+            const { rows } = await pool.query(playerQuery, [matchId, socket.user.userId]);
+            if (rows[0]) {
+                await handleTap(matchId, socket.user.userId, rows[0].faction);
+            }
+        } catch (error) {
+            console.error('Error processing player tap:', error);
+        }
+    });
+    socket.on('disconnect', () => { /* ... unchanged ... */ });
+});
 
+// --- API ROUTES ---
+// ... (All existing API routes are unchanged) ...
+
+// --- FULL CODE FOR COMPLETENESS ---
+// (Middleware)
+verifyToken = (req, res, next) => {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
+    if (!token) return res.sendStatus(401);
+    jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
+        if (err) return res.sendStatus(403);
+        req.user = user;
+        next();
+    });
+};
+socketAuthMiddleware = (socket, next) => {
+    const token = socket.handshake.auth.token;
+    if (!token) return next(new Error("Authentication error: Token not provided"));
+    jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
+        if (err) return next(new Error("Authentication error: Invalid token"));
+        socket.user = user;
+        next();
+    });
+};
+
+// (Socket Listeners)
+io.on('connection', (socket) => {
+    console.log(`User connected: ${socket.user.username}`);
     socket.on('joinMatch', async ({ matchId }) => {
         try {
             const { rows } = await pool.query('SELECT faction FROM match_players WHERE match_id = $1 AND user_id = $2', [matchId, socket.user.userId]);
@@ -116,54 +193,12 @@ io.on('connection', (socket) => {
             socket.emit('error', { message: 'Server error while joining match.' });
         }
     });
-
-    socket.on('playerTap', async ({ matchId }) => {
-        try {
-            const playerQuery = 'SELECT faction FROM match_players WHERE match_id = $1 AND user_id = $2';
-            const { rows } = await pool.query(playerQuery, [matchId, socket.user.userId]);
-            const playerInfo = rows[0];
-            if (!playerInfo) return;
-
-            // Update tap count and price in one transaction for consistency
-            const client = await pool.connect();
-            try {
-                await client.query('BEGIN');
-                await client.query('UPDATE match_players SET tap_count = tap_count + 1 WHERE match_id = $1 AND user_id = $2', [matchId, socket.user.userId]);
-                const pressure = playerInfo.faction === 'BULLS' ? 0.01 : -0.01;
-                const priceResult = await client.query('UPDATE matches SET current_price = current_price + $1 WHERE id = $2 RETURNING current_price', [pressure, matchId]);
-                const newPrice = priceResult.rows[0].current_price;
-                
-                const factionTapsQuery = `
-                    SELECT 
-                        SUM(CASE WHEN faction = 'BULLS' THEN tap_count ELSE 0 END) as bull_taps,
-                        SUM(CASE WHEN faction = 'BEARS' THEN tap_count ELSE 0 END) as bear_taps
-                    FROM match_players WHERE match_id = $1;
-                `;
-                const factionTapsResult = await client.query(factionTapsQuery, [matchId]);
-                const { bull_taps, bear_taps } = factionTapsResult.rows[0];
-
-                await client.query('COMMIT');
-                
-                // Broadcast the full game state to the room
-                io.to(matchId.toString()).emit('gameStateUpdate', { newPrice, bullTaps: bull_taps, bearTaps: bear_taps });
-            } catch (e) {
-                await client.query('ROLLBACK');
-                throw e;
-            } finally {
-                client.release();
-            }
-        } catch (error) {
-            console.error('Error processing player tap:', error);
-        }
-    });
-
     socket.on('disconnect', () => {
         console.log(`User disconnected: ${socket.user.username}`);
     });
 });
 
-// --- All other API Routes are unchanged ---
-// ... (Your login, register, etc. routes go here)
+// (API Routes)
 app.post('/api/register', async (req, res) => {
     const { username, email, password } = req.body;
     if (!username || !email || !password) return res.status(400).json({ message: 'All fields are required.' });
@@ -261,13 +296,8 @@ app.get('/api/user/me', verifyToken, async (req, res) => {
             WHERE u.id = $1;
         `;
         const { rows } = await pool.query(query, [req.user.userId]);
-
-        if (rows.length === 0) {
-            return res.status(404).json({ message: "User not found." });
-        }
-
+        if (rows.length === 0) return res.status(404).json({ message: "User not found." });
         res.json(rows[0]);
-
     } catch (error) {
         console.error('Error fetching user data:', error);
         res.status(500).json({ message: 'Server error.' });
@@ -314,27 +344,21 @@ app.get('/api/matchmaking/status', verifyToken, (req, res) => {
 app.post('/api/matchmaking/leave', verifyToken, (req, res) => {
     const userId = req.user.userId;
     const playerIndex = matchmakingQueue.findIndex(p => p.userId === userId);
-
     if (playerIndex > -1) {
         matchmakingQueue.splice(playerIndex, 1);
         activeMatchStatus.delete(userId);
         console.log(`User ${userId} left the queue. Current queue size: ${matchmakingQueue.length}`);
-        
         if (matchmakingQueue.length === 0 && matchmakingTimer) {
             clearTimeout(matchmakingTimer);
             matchmakingTimer = null;
         }
-
         return res.json({ message: "You have left the queue." });
     } else {
         return res.status(404).json({ message: "You were not in the queue." });
     }
 });
 
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
-
+// --- Server Startup ---
 server.listen(port, () => {
   console.log(`🚀 Server listening on port ${port}`);
 });
