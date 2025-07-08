@@ -2,6 +2,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const mainContainer = document.querySelector('.container');
     let pollingInterval = null;
 
+    // --- Main View Rendering ---
     const fetchAndRenderLobby = async () => {
         const token = localStorage.getItem('authToken'); 
         if (!token) {
@@ -39,7 +40,7 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
             <h2>Select Game</h2>
             <div class="game-modes">
-                <div class="game-tile">
+                <div class="game-tile" id="mayhemTile">
                     <h3>Meme Stock Mayhem</h3>
                     <p>Join the battle of BULLS vs BEARS. Push the price in your faction's favor!</p>
                     <button id="playMayhemButton">Play</button>
@@ -52,33 +53,50 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
             </div>
         `;
-
+        attachLobbyListeners();
+    };
+    
+    // --- Lobby Event Listeners ---
+    const attachLobbyListeners = () => {
         document.getElementById('logoutButton').addEventListener('click', () => {
             localStorage.removeItem('authToken');
             if (pollingInterval) clearInterval(pollingInterval);
             fetchAndRenderLobby();
         });
 
-        document.getElementById('playMayhemButton').addEventListener('click', async () => {
-            const mayhemMessage = document.getElementById('mayhemMessage');
-            mayhemMessage.textContent = 'Joining queue...';
-            mayhemMessage.className = 'success';
+        const playButton = document.getElementById('playMayhemButton');
+        const mayhemMessage = document.getElementById('mayhemMessage');
 
-            const response = await fetch('/api/matchmaking/join', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+        playButton.addEventListener('click', async () => {
+            if (playButton.textContent === 'Play') {
+                mayhemMessage.textContent = 'Joining queue...';
+                mayhemMessage.className = 'success';
+                const response = await fetch('/api/matchmaking/join', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
+                });
+                if(response.ok) {
+                    mayhemMessage.textContent = 'In queue, waiting...';
+                    playButton.textContent = 'Cancel';
+                    playButton.style.borderColor = '#FF0000'; // Change button style to red
+                    pollingInterval = setInterval(checkMatchmakingStatus, 2000);
+                } else {
+                    const data = await response.json();
+                    mayhemMessage.textContent = 'Error: ' + data.message;
+                    mayhemMessage.className = 'error';
                 }
-            });
-            
-            if(response.ok) {
-                mayhemMessage.textContent = 'In queue, waiting for players...';
-                pollingInterval = setInterval(checkMatchmakingStatus, 2000);
-            } else {
+            } else { // Handle Cancel logic
+                mayhemMessage.textContent = 'Leaving queue...';
+                const response = await fetch('/api/matchmaking/leave', {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
+                });
+                clearInterval(pollingInterval);
+                pollingInterval = null;
                 const data = await response.json();
-                mayhemMessage.textContent = 'Error: ' + data.message;
-                mayhemMessage.className = 'error';
+                mayhemMessage.textContent = data.message;
+                playButton.textContent = 'Play';
+                playButton.style.borderColor = '#00FF00'; // Revert button style
             }
         });
     };
@@ -86,12 +104,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const checkMatchmakingStatus = async () => {
         try {
             const response = await fetch('/api/matchmaking/status', {
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-                }
+                headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
             });
             const data = await response.json();
-
             if (data.status === 'found') {
                 console.log('Match found!', data);
                 clearInterval(pollingInterval);
@@ -107,42 +122,27 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
     
+    // --- Auth View Rendering & Listeners (No changes below this line) ---
     const renderLoginView = () => {
         mainContainer.innerHTML = `
-            <div id="loginView">
-                <h2>Login</h2>
-                <form id="loginForm">
-                    <input type="email" id="loginEmail" placeholder="Email" required>
-                    <input type="password" id="loginPassword" placeholder="Password" required>
-                    <button type="submit">Login</button>
-                </form>
-                <div class="toggle-link"><a id="showForgotPassword">Forgot Password?</a></div>
-                <div class="toggle-link">Don't have an account? <a id="showRegister">Register here</a></div>
-            </div>
-
-            <div id="registerView" class="hidden">
-                <h2>Register</h2>
-                <form id="registerForm">
-                    <input type="text" id="registerUsername" placeholder="Username" required>
-                    <input type="email" id="registerEmail" placeholder="Email" required>
-                    <input type="password" id="registerPassword" placeholder="Password" required>
-                    <button type="submit">Create Account</button>
-                </form>
-                <div class="toggle-link">Already have an account? <a id="showLogin">Login here</a></div>
-            </div>
-
-            <div id="forgotPasswordView" class="hidden">
-                <h2>Forgot Password</h2>
-                <form id="forgotPasswordForm">
-                    <p style="font-size: 0.8em; text-align: center; margin-top: 0;">Enter your email and we'll send you a reset link.</p>
-                    <input type="email" id="forgotEmail" placeholder="Email" required>
-                    <button type="submit">Send Reset Link</button>
-                </form>
-                <div class="toggle-link">Remembered your password? <a id="showLoginFromForgot">Login here</a></div>
-            </div>
-
+            <h2>Login</h2>
+            <form id="loginForm">
+                <input type="email" id="loginEmail" placeholder="Email" required>
+                <input type="password" id="loginPassword" placeholder="Password" required>
+                <button type="submit">Login</button>
+            </form>
+            <div class="toggle-link"><a id="showForgotPassword">Forgot Password?</a></div>
+            <div class="toggle-link">Don't have an account? <a id="showRegister">Register here</a></div>
             <div id="message"></div>
         `;
+        addAuthView();
+    };
+
+    const addAuthView = () => {
+        const existingContainer = document.querySelector('.container');
+        const authHTML = `<div id="registerView" class="hidden"><h2>Register</h2><form id="registerForm"><input type="text" id="registerUsername" placeholder="Username" required><input type="email" id="registerEmail" placeholder="Email" required><input type="password" id="registerPassword" placeholder="Password" required><button type="submit">Create Account</button></form><div class="toggle-link">Already have an account? <a id="showLogin">Login here</a></div></div><div id="forgotPasswordView" class="hidden"><h2>Forgot Password</h2><form id="forgotPasswordForm"><p style="font-size: 0.8em; text-align: center; margin-top: 0;">Enter your email and we'll send you a reset link.</p><input type="email" id="forgotEmail" placeholder="Email" required><button type="submit">Send Reset Link</button></form><div class="toggle-link">Remembered your password? <a id="showLoginFromForgot">Login here</a></div></div>`;
+        const messageDiv = document.getElementById('message');
+        if (messageDiv) { messageDiv.insertAdjacentHTML('beforebegin', authHTML); } else { existingContainer.innerHTML += authHTML; }
         attachAuthFormListeners();
     };
 
@@ -160,11 +160,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const messageDiv = document.getElementById('message');
 
         const showView = (viewToShow) => {
-            [loginView, registerView, forgotPasswordView].forEach(view => {
-                if (view) view.classList.add('hidden');
-            });
-            if(viewToShow) viewToShow.classList.remove('hidden');
-            if(messageDiv) {
+            if(loginView && registerView && forgotPasswordView) {
+                [loginView, registerView, forgotPasswordView].forEach(view => view.classList.add('hidden'));
+                viewToShow.classList.remove('hidden');
                 messageDiv.textContent = '';
                 messageDiv.className = '';
             }
@@ -212,7 +210,5 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     };
 
-    // --- CORRECTED INITIAL LOAD ---
-    // This single function call correctly determines what to show on page load.
     fetchAndRenderLobby();
 });

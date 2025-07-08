@@ -23,10 +23,9 @@ const pool = new Pool({
 
 // --- Server-side State ---
 const matchmakingQueue = [];
-const activeMatchStatus = new Map(); // Stores the status for players, e.g., { userId: 'waiting' | { matchId: 123 } }
+const activeMatchStatus = new Map();
 const MATCH_SIZE = 10;
-const MATCHMAKING_TIMEOUT = 10000; // 10 seconds
-
+const MATCHMAKING_TIMEOUT = 10000;
 let matchmakingTimer = null;
 
 // --- Middleware ---
@@ -45,107 +44,33 @@ const verifyToken = (req, res, next) => {
 const createMatch = async (players) => {
     console.log('Creating match for players:', players.map(p => p.userId));
     try {
-        // Step 1: Create the match entry
-        const end_time = new Date(Date.now() + 3 * 60000); // 3 minutes from now
-        const matchQuery = `
-            INSERT INTO matches (start_price, current_price, status, end_time)
-            VALUES (100.00, 100.00, 'active', $1)
-            RETURNING id;
-        `;
+        const end_time = new Date(Date.now() + 3 * 60000);
+        const matchQuery = `INSERT INTO matches (start_price, current_price, status, end_time) VALUES (100.00, 100.00, 'active', $1) RETURNING id;`;
         const matchResult = await pool.query(matchQuery, [end_time]);
         const matchId = matchResult.rows[0].id;
         console.log(`Match ${matchId} created in the database.`);
 
-        // Step 2: Assign factions and insert players
         const shuffledPlayers = players.sort(() => 0.5 - Math.random());
         const bullCount = Math.ceil(shuffledPlayers.length / 2);
-
         const playerInsertPromises = shuffledPlayers.map((player, index) => {
             const faction = index < bullCount ? 'BULLS' : 'BEARS';
-            const playerQuery = `
-                INSERT INTO match_players (match_id, user_id, faction, tap_count)
-                VALUES ($1, $2, $3, 0);
-            `;
-            return pool.query(playerQuery, [matchId, player.userId, faction]);
+            return pool.query(`INSERT INTO match_players (match_id, user_id, faction) VALUES ($1, $2, $3)`, [matchId, player.userId, faction]);
         });
-
         await Promise.all(playerInsertPromises);
         console.log(`All players for match ${matchId} have been inserted.`);
 
-        // Step 3: Update the status for all real players in this match
         players.forEach(player => {
-            // Bots will have negative IDs, so we only update for real players
-            if(player.userId > 0) {
+            if (player.userId > 0) { // Only update status for real players
                 activeMatchStatus.set(player.userId, { status: 'found', matchId: matchId });
             }
         });
-
     } catch (error) {
         console.error('Error creating match:', error);
     }
 };
 
-
 // --- API ROUTES ---
-
-// ... (Existing auth routes are unchanged, only showing matchmaking here)
-app.post('/api/matchmaking/join', verifyToken, async (req, res) => {
-    const userId = req.user.userId;
-
-    if (matchmakingQueue.find(p => p.userId === userId) || activeMatchStatus.has(userId)) {
-        return res.status(409).json({ message: 'You are already in queue or in a match.' });
-    }
-
-    matchmakingQueue.push({ userId });
-    activeMatchStatus.set(userId, { status: 'waiting' });
-    console.log(`User ${userId} joined queue. Size: ${matchmakingQueue.length}`);
-
-    // If the queue is now full with real players
-    if (matchmakingQueue.length >= MATCH_SIZE) {
-        clearTimeout(matchmakingTimer);
-        matchmakingTimer = null;
-        const playersToStart = matchmakingQueue.splice(0, MATCH_SIZE);
-        await createMatch(playersToStart);
-    } 
-    // If this is the first player, start the timeout
-    else if (matchmakingQueue.length === 1) {
-        matchmakingTimer = setTimeout(async () => {
-            console.log('Matchmaking timeout reached. Filling with bots.');
-            const spotsToFill = MATCH_SIZE - matchmakingQueue.length;
-            
-            // Get bot IDs from the database
-            const botQuery = `SELECT id FROM users WHERE username LIKE 'bot%' LIMIT $1;`;
-            const { rows } = await pool.query(botQuery, [spotsToFill]);
-            const botPlayers = rows.map(bot => ({ userId: bot.id }));
-
-            const playersToStart = [...matchmakingQueue];
-            playersToStart.push(...botPlayers);
-            
-            matchmakingQueue.length = 0; // Clear the queue
-            await createMatch(playersToStart);
-            matchmakingTimer = null;
-
-        }, MATCHMAKING_TIMEOUT);
-    }
-
-    res.json({ message: 'You have joined the queue.' });
-});
-
-app.get('/api/matchmaking/status', verifyToken, (req, res) => {
-    const userId = req.user.userId;
-    const userStatus = activeMatchStatus.get(userId);
-
-    if (userStatus && userStatus.status === 'found') {
-        res.json(userStatus);
-        // Clean up the status map once the user has been notified
-        activeMatchStatus.delete(userId);
-    } else {
-        res.json({ status: 'waiting' });
-    }
-});
-
-
-// ... (All other routes like login, register, /api/user/me etc. go here)
+// ... (All auth routes remain the same)
 app.post('/api/register', async (req, res) => {
     const { username, email, password } = req.body;
     if (!username || !email || !password) return res.status(400).json({ message: 'All fields are required.' });
@@ -256,6 +181,68 @@ app.get('/api/user/me', verifyToken, async (req, res) => {
     }
 });
 
+// Matchmaking Routes
+app.post('/api/matchmaking/join', verifyToken, async (req, res) => {
+    const userId = req.user.userId;
+    if (matchmakingQueue.find(p => p.userId === userId) || activeMatchStatus.has(userId)) {
+        return res.status(409).json({ message: 'You are already in queue or in a match.' });
+    }
+    matchmakingQueue.push({ userId });
+    activeMatchStatus.set(userId, { status: 'waiting' });
+    console.log(`User ${userId} joined queue. Size: ${matchmakingQueue.length}`);
+    if (matchmakingQueue.length >= MATCH_SIZE) {
+        clearTimeout(matchmakingTimer);
+        matchmakingTimer = null;
+        const playersToStart = matchmakingQueue.splice(0, MATCH_SIZE);
+        await createMatch(playersToStart);
+    } else if (matchmakingQueue.length === 1) {
+        matchmakingTimer = setTimeout(async () => {
+            console.log('Matchmaking timeout reached. Filling with bots.');
+            const spotsToFill = MATCH_SIZE - matchmakingQueue.length;
+            const botQuery = `SELECT id FROM users WHERE username LIKE 'bot%' LIMIT $1;`;
+            const { rows } = await pool.query(botQuery, [spotsToFill]);
+            const botPlayers = rows.map(bot => ({ userId: bot.id }));
+            const playersToStart = [...matchmakingQueue, ...botPlayers];
+            matchmakingQueue.length = 0;
+            await createMatch(playersToStart);
+            matchmakingTimer = null;
+        }, MATCHMAKING_TIMEOUT);
+    }
+    res.json({ message: 'You have joined the queue.' });
+});
+
+app.get('/api/matchmaking/status', verifyToken, (req, res) => {
+    const userId = req.user.userId;
+    const userStatus = activeMatchStatus.get(userId);
+    if (userStatus && userStatus.status === 'found') {
+        res.json(userStatus);
+        activeMatchStatus.delete(userId);
+    } else {
+        res.json({ status: 'waiting' });
+    }
+});
+
+// === NEW: Leave Matchmaking Endpoint ===
+app.post('/api/matchmaking/leave', verifyToken, (req, res) => {
+    const userId = req.user.userId;
+    const playerIndex = matchmakingQueue.findIndex(p => p.userId === userId);
+
+    if (playerIndex > -1) {
+        matchmakingQueue.splice(playerIndex, 1); // Remove player from queue
+        activeMatchStatus.delete(userId); // Remove player status
+        console.log(`User ${userId} left the queue. Current queue size: ${matchmakingQueue.length}`);
+        
+        // If the queue is now empty, clear the timeout
+        if (matchmakingQueue.length === 0) {
+            clearTimeout(matchmakingTimer);
+            matchmakingTimer = null;
+        }
+
+        return res.json({ message: "You have left the queue." });
+    } else {
+        return res.status(404).json({ message: "You were not in the queue." });
+    }
+});
 
 // --- CATCH-ALL ROUTE ---
 app.get('*', (req, res) => {
