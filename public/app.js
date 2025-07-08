@@ -1,9 +1,10 @@
-// public/app.js
 document.addEventListener('DOMContentLoaded', () => {
     const mainContainer = document.querySelector('.container');
-    const token = localStorage.getItem('authToken');
 
     const fetchAndRenderLobby = async () => {
+        // This line was moved inside the function to get the latest token status
+        const token = localStorage.getItem('authToken'); 
+        
         if (!token) {
             renderLoginView(); // If no token, show login
             return;
@@ -113,7 +114,6 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const attachAuthFormListeners = () => {
-        // ... (The rest of this function contains the exact same form logic as before)
         const loginView = document.getElementById('loginView');
         const registerView = document.getElementById('registerView');
         const forgotPasswordView = document.getElementById('forgotPasswordView');
@@ -166,7 +166,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await response.json();
             if (response.ok) {
                 localStorage.setItem('authToken', data.token);
-                fetchAndRenderLobby(); // Re-render lobby on successful login
+                fetchAndRenderLobby();
             } else {
                 messageDiv.textContent = 'Error: ' + data.message;
                 messageDiv.className = 'error';
@@ -187,6 +187,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     };
 
-    // Initial load
+    // Initial page load check
     fetchAndRenderLobby();
 });
