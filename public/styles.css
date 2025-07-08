@@ -203,3 +203,22 @@ a:hover { text-decoration: underline; }
         width: 100%;
     }
 }
+/* Additions for arena.html */
+.faction-scores {
+    display: flex;
+    justify-content: space-around;
+    margin-top: 1.5rem;
+    font-size: 1em;
+}
+.score-box {
+    padding: 0.5rem 1rem;
+    border: 2px solid;
+}
+#bullsScore {
+    border-color: #00FF00;
+    color: #00FF00;
+}
+#bearsScore {
+    border-color: #FF0000;
+    color: #FF0000;
+}

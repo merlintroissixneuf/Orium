@@ -2,6 +2,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const factionIndicator = document.getElementById('factionIndicator');
     const priceValue = document.getElementById('priceValue');
     const tapButton = document.getElementById('tapButton');
+    const timerDisplay = document.getElementById('timer');
+    const bullsScoreDisplay = document.getElementById('bullsScore');
+    const bearsScoreDisplay = document.getElementById('bearsScore');
 
     const urlParams = new URLSearchParams(window.location.search);
     const matchId = urlParams.get('matchId');
@@ -11,46 +14,47 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
     }
 
-    // Connect to the WebSocket server, now with the auth token
     const socket = io({
-        auth: {
-            token: localStorage.getItem('authToken')
-        }
+        auth: { token: localStorage.getItem('authToken') }
     });
 
-    // --- EMIT EVENTS (Client to Server) ---
-
-    // 1. Join the specific match room once connected
     socket.on('connect', () => {
-        console.log('Connected to server, joining match...');
         socket.emit('joinMatch', { matchId });
     });
 
-    // 2. Send a tap event when the button is clicked
     tapButton.addEventListener('click', () => {
         socket.emit('playerTap', { matchId });
     });
 
-
-    // --- LISTEN FOR EVENTS (Server to Client) ---
-
     socket.on('matchJoined', (data) => {
         factionIndicator.textContent = `FACTION: ${data.faction}`;
-        if (data.faction === 'BULLS') {
-            factionIndicator.style.color = '#00FF00'; // Green
-        } else {
-            factionIndicator.style.color = '#FF0000'; // Red
-        }
-    });
-
-    socket.on('priceUpdate', (data) => {
-        priceValue.textContent = Number(data.newPrice).toFixed(2);
+        factionIndicator.style.color = data.faction === 'BULLS' ? '#00FF00' : '#FF0000';
     });
     
-    // Listen for connection errors (e.g., invalid token)
+    // Listen for the new, combined game state update
+    socket.on('gameStateUpdate', (data) => {
+        priceValue.textContent = Number(data.newPrice).toFixed(2);
+        bullsScoreDisplay.textContent = `BULLS: ${data.bullTaps || 0}`;
+        bearsScoreDisplay.textContent = `BEARS: ${data.bearTaps || 0}`;
+    });
+
+    // Listen for time updates
+    socket.on('timeUpdate', (data) => {
+        const minutes = Math.floor(data.remainingTime / 60);
+        const seconds = data.remainingTime % 60;
+        timerDisplay.textContent = `TIME: ${minutes}:${seconds.toString().padStart(2, '0')}`;
+    });
+
+    // Listen for the end of the match
+    socket.on('matchEnd', (data) => {
+        tapButton.disabled = true;
+        tapButton.textContent = 'GAME OVER';
+        document.querySelector('.container').style.borderColor = '#FF0000';
+    });
+
     socket.on('connect_error', (err) => {
-        alert(err.message); // e.g., "Authentication error: Invalid token"
-        window.location.href = '/'; // Redirect to login page
+        alert(err.message);
+        window.location.href = '/';
     });
 
     socket.on('error', (data) => {
