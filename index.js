@@ -1,4 +1,3 @@
-// index.js
 require('dotenv').config();
 const express = require('express');
 const bcrypt = require('bcrypt');
@@ -46,7 +45,6 @@ const verifyToken = (req, res, next) => {
 
 // --- API ROUTES ---
 
-// ... (Existing register, verify, login, password routes are unchanged)
 app.post('/api/register', async (req, res) => {
     const { username, email, password } = req.body;
     if (!username || !email || !password) return res.status(400).json({ message: 'All fields are required.' });
@@ -147,7 +145,7 @@ app.post('/api/matchmaking/join', verifyToken, async (req, res) => {
     res.json({ message: `You have joined the queue. Waiting for ${MATCH_SIZE - matchmakingQueue.length} more players.` });
 });
 
-// === NEW: Secure Endpoint to Get User Data ===
+// === Secure Endpoint to Get User Data ===
 app.get('/api/user/me', verifyToken, async (req, res) => {
     try {
         const query = `
