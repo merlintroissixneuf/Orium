@@ -29,32 +29,24 @@ const transporter = nodemailer.createTransport({
     }
 });
 
-// --- Server-side Matchmaking Queue ---
 const matchmakingQueue = [];
-const MATCH_SIZE = 10; // Let's say a match needs 10 players
+const MATCH_SIZE = 10;
 
-// --- Middleware to Verify JWT Token ---
 const verifyToken = (req, res, next) => {
     const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.split(' ')[1]; // Bearer <TOKEN>
-
-    if (!token) {
-        return res.sendStatus(401); // Unauthorized
-    }
+    const token = authHeader && authHeader.split(' ')[1];
+    if (!token) return res.sendStatus(401);
 
     jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
-        if (err) {
-            return res.sendStatus(403); // Forbidden
-        }
-        req.user = user; // Add user payload to request object
+        if (err) return res.sendStatus(403);
+        req.user = user;
         next();
     });
 };
 
-
 // --- API ROUTES ---
 
-// ... (Existing /api/register, /api/verify, etc. routes are unchanged)
+// ... (Existing register, verify, login, password routes are unchanged)
 app.post('/api/register', async (req, res) => {
     const { username, email, password } = req.body;
     if (!username || !email || !password) return res.status(400).json({ message: 'All fields are required.' });
@@ -63,7 +55,8 @@ app.post('/api/register', async (req, res) => {
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);
         const newUserQuery = `INSERT INTO users (username, email, hashed_password, verification_token) VALUES ($1, $2, $3, $4) RETURNING id;`;
-        await pool.query(newUserQuery, [username, email, hashedPassword, verificationToken]);
+        const { rows } = await pool.query(newUserQuery, [username, email, hashedPassword, verificationToken]);
+        await pool.query('INSERT INTO wallets (user_id) VALUES ($1)', [rows[0].id]);
         const verificationUrl = `https://${req.headers.host}/api/verify?token=${verificationToken}`;
         await transporter.sendMail({ from: `"Orium.fun" <${process.env.EMAIL_USER}>`, to: email, subject: 'Verify Your Email Address', html: `<b>Please click the link to verify your email:</b> <a href="${verificationUrl}">${verificationUrl}</a>` });
         res.status(201).json({ message: 'Registration successful! Please check your email (and spam folder) to verify your account.' });
@@ -73,7 +66,6 @@ app.post('/api/register', async (req, res) => {
         res.status(500).json({ message: 'Server error.' });
     }
 });
-
 app.get('/api/verify', async (req, res) => {
     const { token } = req.query;
     if (!token) return res.status(400).send('Verification token is missing.');
@@ -88,7 +80,6 @@ app.get('/api/verify', async (req, res) => {
         res.status(500).send('Server error.');
     }
 });
-
 app.post('/api/login', async (req, res) => {
     const { email, password } = req.body;
     if (!email || !password) return res.status(400).json({ message: 'Email and password are required.' });
@@ -106,16 +97,13 @@ app.post('/api/login', async (req, res) => {
         res.status(500).json({ message: 'Server error.' });
     }
 });
-
 app.post('/api/forgot-password', async (req, res) => {
     const { email } = req.body;
     if (!email) return res.status(400).json({ message: 'Email is required.' });
     try {
         const { rows } = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
         const user = rows[0];
-        if (!user) {
-            return res.json({ message: 'If a user with that email exists, a password reset link has been sent.' });
-        }
+        if (!user) return res.json({ message: 'If a user with that email exists, a password reset link has been sent.' });
         const resetToken = crypto.randomBytes(32).toString('hex');
         const expires = new Date(Date.now() + 3600000); // 1 hour
         await pool.query('UPDATE users SET password_reset_token = $1, password_reset_expires = $2 WHERE email = $3', [resetToken, expires, email]);
@@ -127,7 +115,6 @@ app.post('/api/forgot-password', async (req, res) => {
         res.status(500).json({ message: 'Server error.' });
     }
 });
-
 app.post('/api/reset-password', async (req, res) => {
     const { token, password } = req.body;
     if (!token || !password) return res.status(400).json({ message: 'Token and new password are required.' });
@@ -145,33 +132,46 @@ app.post('/api/reset-password', async (req, res) => {
     }
 });
 
-// === NEW: Matchmaking Endpoint ===
 app.post('/api/matchmaking/join', verifyToken, async (req, res) => {
     const userId = req.user.userId;
-
-    // Prevent user from joining multiple times
     if (matchmakingQueue.find(p => p.userId === userId)) {
         return res.status(409).json({ message: 'You are already in the queue.' });
     }
-
     matchmakingQueue.push({ userId });
     console.log(`User ${userId} joined the queue. Current queue size: ${matchmakingQueue.length}`);
-
-    // If queue is full, create a match
     if (matchmakingQueue.length >= MATCH_SIZE) {
-        // For simplicity, we'll just log this for now.
-        // In the next step, we will write the code to create the match in the database.
         console.log(`MATCH FOUND! Players: ${matchmakingQueue.map(p => p.userId).join(', ')}`);
-        
-        // Clear the queue for the next match
         matchmakingQueue.length = 0;
-
-        // In a real app, you would notify players here via WebSockets.
-        // For now, we'll just send a message to the last player who joined.
         return res.json({ message: 'Match found! Get ready to play.' });
     }
-
     res.json({ message: `You have joined the queue. Waiting for ${MATCH_SIZE - matchmakingQueue.length} more players.` });
+});
+
+// === NEW: Secure Endpoint to Get User Data ===
+app.get('/api/user/me', verifyToken, async (req, res) => {
+    try {
+        const query = `
+            SELECT 
+                u.username, 
+                u.email, 
+                w.hype_token_balance, 
+                w.orium_shard_balance 
+            FROM users u
+            JOIN wallets w ON u.id = w.user_id
+            WHERE u.id = $1;
+        `;
+        const { rows } = await pool.query(query, [req.user.userId]);
+
+        if (rows.length === 0) {
+            return res.status(404).json({ message: "User not found." });
+        }
+
+        res.json(rows[0]);
+
+    } catch (error) {
+        console.error('Error fetching user data:', error);
+        res.status(500).json({ message: 'Server error.' });
+    }
 });
 
 
