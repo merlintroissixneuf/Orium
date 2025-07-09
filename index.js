@@ -149,7 +149,7 @@ const createMatch = async (players, realPlayersInQueue) => {
         const bullCount = Math.ceil(shuffledPlayers.length / 2);
         for (const [index, player] of shuffledPlayers.entries()) {
             player.faction = index < bullCount ? 'BULLS' : 'BEARS';
-            const insertResult = await client.query(
+            const insertResult = await pool.query(
                 `INSERT INTO match_players (match_id, user_id, faction) VALUES ($1, $2, $3) RETURNING *;`,
                 [matchId, player.userId, player.faction]
             );
@@ -167,7 +167,7 @@ const createMatch = async (players, realPlayersInQueue) => {
         console.log(`Faction distribution: ${bullPlayers} Bulls, ${bearPlayers} Bears`);
         console.log('-------------------------');
 
-        const bots = shuffledPlayers.filter(p => !realPlayersInQueue.some(rp => rp.userId === rp.userId));
+        const bots = shuffledPlayers.filter(p => !realPlayersInQueue.some(rp => rp.userId === p.userId));
         console.log(`Bots in match ${matchId}:`, bots.map(b => ({ userId: b.userId, faction: b.faction })));
         const matchBotIntervals = [];
         bots.forEach(bot => {
@@ -282,17 +282,26 @@ app.post('/api/register', async (req, res) => {
         }
         const userId = rows[0].id;
         const storedToken = rows[0].verification_token;
+        if (storedToken !== verificationToken) {
+            console.error('Stored token mismatch:', { storedToken, generated: verificationToken });
+            throw new Error('Token storage mismatch');
+        }
         console.log('User inserted:', { userId, storedToken });
         await pool.query('INSERT INTO wallets (user_id) VALUES ($1)', [userId]);
         const verificationUrl = `https://${req.headers.host}/api/verify?token=${verificationToken}`;
         console.log('Sending verification email to:', email, 'with URL:', verificationUrl);
-        await transporter.sendMail({
-            from: `"Orium.fun" <${process.env.EMAIL_USER}>`,
-            to: email,
-            subject: 'Verify Your Email Address',
-            html: `<b>Please click the link to verify your email:</b> <a href="${verificationUrl}">${verificationUrl}</a>`
-        });
-        console.log('Email sent successfully');
+        try {
+            await transporter.sendMail({
+                from: `"Orium.fun" <${process.env.EMAIL_USER}>`,
+                to: email,
+                subject: 'Verify Your Email Address',
+                html: `<b>Please click the link to verify your email:</b> <a href="${verificationUrl}">${verificationUrl}</a>`
+            });
+            console.log('Email sent successfully');
+        } catch (emailError) {
+            console.error('Email sending failed:', emailError);
+            // Allow registration to proceed even if email fails, log for debugging
+        }
         res.status(201).json({ message: 'Registration successful! Please check your email (and spam folder) to verify your account.' });
     } catch (error) {
         if (error.code === '23505') {
@@ -439,7 +448,7 @@ app.post('/api/matchmaking/join', verifyToken, async (req, res) => {
                 const spotsToFill = MATCH_SIZE - realPlayersInQueue.length;
                 const botQuery = `SELECT id FROM users WHERE username LIKE 'bot%' LIMIT $1;`;
                 const { rows } = await pool.query(botQuery, [spotsToFill]);
-                const botPlayers = rows.map(bot => ({ userId: bot.id}));
+                const botPlayers = rows.map(bot => ({ userId: bot.id }));
                 console.log(`Fetched ${botPlayers.length} bots for match`);
                 const playersToStart = [...realPlayersInQueue, ...botPlayers];
                 matchmakingQueue.length = 0;
