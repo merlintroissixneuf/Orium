@@ -74,7 +74,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const existingContainer = document.querySelector('.container');
         const authHTML = `<div id="registerView" class="hidden"><h2>Register</h2><form id="registerForm"><input type="text" id="registerUsername" placeholder="Username" required><input type="email" id="registerEmail" placeholder="Email" required><input type="password" id="registerPassword" placeholder="Password" required><button type="submit">Create Account</button></form><div class="toggle-link">Already have an account? <a id="showLogin">Login here</a></div></div><div id="forgotPasswordView" class="hidden"><h2>Forgot Password</h2><form id="forgotPasswordForm"><p style="font-size: 0.8em; text-align: center; margin-top: 0;">Enter your email and we'll send you a reset link.</p><input type="email" id="forgotEmail" placeholder="Email" required><button type="submit">Send Reset Link</button></form><div class="toggle-link">Remembered your password? <a id="showLoginFromForgot">Login here</a></div></div>`;
         const messageDiv = document.getElementById('message');
-        if (messageDiv) { messageDiv.insertAdjacentHTML('beforebegin', authHTML); } else { existingContainer.innerHTML += authHTML; }
+        if (messageDiv) {
+            messageDiv.insertAdjacentHTML('beforebegin', authHTML);
+            console.log('Auth views added successfully');
+        } else {
+            existingContainer.innerHTML += authHTML;
+            console.log('Auth views appended to container');
+        }
         attachAuthFormListeners();
     };
 
@@ -182,13 +188,16 @@ document.addEventListener('DOMContentLoaded', () => {
         const showLoginFromForgot = document.getElementById('showLoginFromForgot');
         const messageDiv = document.getElementById('message');
 
+        if (!loginView || !registerView || !forgotPasswordView) {
+            console.error('One or more auth views not found:', { loginView, registerView, forgotPasswordView });
+            return;
+        }
+
         const showView = (viewToShow) => {
-            if (loginView && registerView && forgotPasswordView) {
-                [loginView, registerView, forgotPasswordView].forEach(view => view.classList.add('hidden'));
-                viewToShow.classList.remove('hidden');
-                messageDiv.textContent = '';
-                messageDiv.className = '';
-            }
+            [loginView, registerView, forgotPasswordView].forEach(view => view.classList.add('hidden'));
+            viewToShow.classList.remove('hidden');
+            messageDiv.textContent = '';
+            messageDiv.className = '';
         };
 
         if (showRegister) showRegister.addEventListener('click', () => showView(registerView));
