@@ -300,7 +300,7 @@ app.post('/api/register', async (req, res) => {
             console.log('Email sent successfully');
         } catch (emailError) {
             console.error('Email sending failed:', emailError);
-            // Allow registration to proceed even if email fails, log for debugging
+            // Proceed without email for now, log for debugging
         }
         res.status(201).json({ message: 'Registration successful! Please check your email (and spam folder) to verify your account.' });
     } catch (error) {
@@ -315,24 +315,33 @@ app.post('/api/register', async (req, res) => {
 
 app.get('/api/verify', async (req, res) => {
     const { token } = req.query;
+    console.log('Received verification token:', token); // Log the incoming token
     if (!token) {
         console.error('Missing verification token');
         return res.status(400).send('Verification token is missing.');
     }
+    let client;
     try {
-        const { rows } = await pool.query('SELECT * FROM users WHERE verification_token = $1', [token]);
+        client = await pool.connect();
+        await client.query('BEGIN');
+        const { rows } = await client.query('SELECT * FROM users WHERE verification_token = $1 FOR UPDATE', [token]);
         const user = rows[0];
         if (!user) {
             console.error('Invalid verification token:', token);
+            await client.query('ROLLBACK');
             return res.status(400).send('Invalid verification token.');
         }
-        await pool.query('UPDATE users SET is_verified = TRUE, verification_token = NULL WHERE id = $1', [user.id]);
+        await client.query('UPDATE users SET is_verified = TRUE, verification_token = NULL WHERE id = $1', [user.id]);
         console.log('User verified successfully:', user.id);
+        await client.query('COMMIT');
         res.set('Content-Type', 'text/html');
         res.sendFile(path.join(__dirname, 'public', 'verified.html'));
     } catch (error) {
+        if (client) await client.query('ROLLBACK');
         console.error('Verification error:', error.stack);
         res.status(500).send('Server error during verification. Please try again or contact support.');
+    } finally {
+        if (client) client.release();
     }
 });
 
