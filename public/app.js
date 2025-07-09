@@ -58,34 +58,46 @@ document.addEventListener('DOMContentLoaded', () => {
     const renderLoginView = () => {
         mainContainer.innerHTML = `
             <h2>🪨 Orium.fun</h2>
-            <div class="auth-container">
-                <form id="loginForm" class="auth-form">
+            <div id="loginView">
+                <form id="loginForm">
                     <h3>Login</h3>
                     <input type="email" id="loginEmail" placeholder="Email" required>
                     <input type="password" id="loginPassword" placeholder="Password" required>
                     <button type="submit">Login</button>
                     <div class="toggle-link"><a id="showForgotPassword">Forgot Password?</a></div>
-                </form>
-                <div class="divider"></div>
-                <form id="registerForm" class="auth-form">
-                    <h3>Register</h3>
-                    <input type="text" id="registerUsername" placeholder="Username" required>
-                    <input type="email" id="registerEmail" placeholder="Email" required>
-                    <input type="password" id="registerPassword" placeholder="Password" required>
-                    <button type="submit">Create Account</button>
+                    <div class="toggle-link">Don't have an account? <a id="showRegister">Register here</a></div>
                 </form>
             </div>
             <div id="message"></div>
             <div id="loading" class="hidden">Processing...</div>
         `;
-        attachAuthFormListeners();
+        addAuthView();
     };
 
     const addAuthView = () => {
-        const forgotPasswordViewHTML = `<div id="forgotPasswordView" class="hidden"><h2>🪨 Orium.fun</h2><form id="forgotPasswordForm"><p style="font-size: 0.8em; text-align: center; margin-top: 0;">Enter your email and we'll send you a reset link.</p><input type="email" id="forgotEmail" placeholder="Email" required><button type="submit">Send Reset Link</button></form><div class="toggle-link">Remembered your password? <a id="showLoginFromForgot">Login here</a></div></div>`;
-        const container = document.querySelector('.container');
-        container.insertAdjacentHTML('beforeend', forgotPasswordViewHTML);
-        console.log('Forgot password view added');
+        const authHTML = `
+            <div id="registerView" class="hidden">
+                <form id="registerForm">
+                    <h3>Register</h3>
+                    <input type="text" id="registerUsername" placeholder="Username" required>
+                    <input type="email" id="registerEmail" placeholder="Email" required>
+                    <input type="password" id="registerPassword" placeholder="Password" required>
+                    <button type="submit">Create Account</button>
+                    <div class="toggle-link"><a id="showLogin">Back to Login</a></div>
+                </form>
+            </div>
+            <div id="forgotPasswordView" class="hidden">
+                <form id="forgotPasswordForm">
+                    <h3>Forgot Password</h3>
+                    <p style="font-size: 0.8em; text-align: center; margin-top: 0;">Enter your email and we'll send you a reset link.</p>
+                    <input type="email" id="forgotEmail" placeholder="Email" required>
+                    <button type="submit">Send Reset Link</button>
+                    <div class="toggle-link"><a id="showLoginFromForgot">Back to Login</a></div>
+                </form>
+            </div>
+        `;
+        mainContainer.insertAdjacentHTML('beforeend', authHTML);
+        console.log('Auth views added');
         attachAuthFormListeners();
     };
 
@@ -181,33 +193,35 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     
     const attachAuthFormListeners = () => {
+        const loginView = document.getElementById('loginView');
+        const registerView = document.getElementById('registerView');
+        const forgotPasswordView = document.getElementById('forgotPasswordView');
         const loginForm = document.getElementById('loginForm');
         const registerForm = document.getElementById('registerForm');
         const forgotPasswordForm = document.getElementById('forgotPasswordForm');
+        const showRegister = document.getElementById('showRegister');
+        const showLogin = document.getElementById('showLogin');
         const showForgotPassword = document.getElementById('showForgotPassword');
         const showLoginFromForgot = document.getElementById('showLoginFromForgot');
         const messageDiv = document.getElementById('message');
         const loadingDiv = document.getElementById('loading');
 
-        if (!loginForm || !registerForm || !forgotPasswordForm) {
-            console.error('One or more auth forms not found:', { loginForm, registerForm, forgotPasswordForm });
+        if (!loginView || !registerView || !forgotPasswordView || !loginForm || !registerForm || !forgotPasswordForm) {
+            console.error('One or more auth elements not found:', { loginView, registerView, forgotPasswordView, loginForm, registerForm, forgotPasswordForm });
             return;
         }
 
-        const showForgotPasswordView = () => {
-            [loginForm.parentElement, registerForm.parentElement, forgotPasswordForm.parentElement].forEach(el => el.classList.add('hidden'));
-            forgotPasswordForm.parentElement.classList.remove('hidden');
+        const showView = (viewToShow) => {
+            [loginView, registerView, forgotPasswordView].forEach(view => view.classList.add('hidden'));
+            viewToShow.classList.remove('hidden');
             messageDiv.textContent = '';
             messageDiv.className = '';
         };
 
-        if (showForgotPassword) showForgotPassword.addEventListener('click', showForgotPasswordView);
-        if (showLoginFromForgot) showLoginFromForgot.addEventListener('click', () => {
-            [forgotPasswordForm.parentElement, registerForm.parentElement].forEach(el => el.classList.add('hidden'));
-            loginForm.parentElement.classList.remove('hidden');
-            messageDiv.textContent = '';
-            messageDiv.className = '';
-        });
+        if (showRegister) showRegister.addEventListener('click', () => showView(registerView));
+        if (showLogin) showLogin.addEventListener('click', () => showView(loginView));
+        if (showForgotPassword) showForgotPassword.addEventListener('click', () => showView(forgotPasswordView));
+        if (showLoginFromForgot) showLoginFromForgot.addEventListener('click', () => showView(loginView));
 
         const showLoading = () => { loadingDiv.classList.remove('hidden'); };
         const hideLoading = () => { loadingDiv.classList.add('hidden'); };
