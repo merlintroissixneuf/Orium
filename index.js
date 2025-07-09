@@ -167,7 +167,7 @@ const createMatch = async (players, realPlayersInQueue) => {
         console.log(`Faction distribution: ${bullPlayers} Bulls, ${bearPlayers} Bears`);
         console.log('-------------------------');
 
-        const bots = shuffledPlayers.filter(p => !realPlayersInQueue.some(rp => rp.userId === p.userId));
+        const bots = shuffledPlayers.filter(p => !realPlayersInQueue.some(rp => rp.userId === rp.userId));
         console.log(`Bots in match ${matchId}:`, bots.map(b => ({ userId: b.userId, faction: b.faction })));
         const matchBotIntervals = [];
         bots.forEach(bot => {
@@ -289,7 +289,10 @@ app.post('/api/register', async (req, res) => {
 
 app.get('/api/verify', async (req, res) => {
     const { token } = req.query;
-    if (!token) return res.status(400).send('Verification token is missing.');
+    if (!token) {
+        console.error('Missing verification token');
+        return res.status(400).send('Verification token is missing.');
+    }
     try {
         const { rows } = await pool.query('SELECT * FROM users WHERE verification_token = $1', [token]);
         const user = rows[0];
@@ -299,7 +302,9 @@ app.get('/api/verify', async (req, res) => {
         }
         await pool.query('UPDATE users SET is_verified = TRUE, verification_token = NULL WHERE id = $1', [user.id]);
         console.log('User verified successfully:', user.id);
-        res.redirect('/public/verified.html');
+        // Serve verified.html directly to avoid redirect issues
+        res.set('Content-Type', 'text/html');
+        res.sendFile(path.join(__dirname, 'public', 'verified.html'));
     } catch (error) {
         console.error('Verification error:', error);
         res.status(500).send('Server error during verification. Please try again or contact support.');
