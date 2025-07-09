@@ -56,13 +56,16 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     
     const renderLoginView = () => {
+        const savedUsername = localStorage.getItem('savedUsername');
+        const savedPassword = localStorage.getItem('savedPassword');
         mainContainer.innerHTML = `
             <h2>🪨 Orium.fun</h2>
             <div id="loginView">
                 <form id="loginForm">
                     <h3>Login</h3>
-                    <input type="email" id="loginEmail" placeholder="Email" required>
-                    <input type="password" id="loginPassword" placeholder="Password" required>
+                    <input type="text" id="loginIdentifier" placeholder="Username or Email" value="${savedUsername || ''}" required>
+                    <input type="password" id="loginPassword" placeholder="Password" value="${savedPassword || ''}" required>
+                    <label><input type="checkbox" id="rememberMe"> Remember Me</label>
                     <button type="submit">Login</button>
                     <div class="toggle-link"><a id="showForgotPassword">Forgot Password?</a></div>
                     <div class="toggle-link">Don't have an account? <a id="showRegister">Register here</a></div>
@@ -230,17 +233,25 @@ document.addEventListener('DOMContentLoaded', () => {
             event.preventDefault();
             console.log('Submitting login form');
             showLoading();
-            const email = document.getElementById('loginEmail').value;
+            const identifier = document.getElementById('loginIdentifier').value;
             const password = document.getElementById('loginPassword').value;
+            const remember = document.getElementById('rememberMe').checked;
             try {
                 const response = await fetch('/api/login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email, password }),
+                    body: JSON.stringify({ identifier, password, remember }),
                 });
                 const data = await response.json();
                 if (response.ok) {
                     localStorage.setItem('authToken', data.token);
+                    if (remember) {
+                        localStorage.setItem('savedUsername', identifier);
+                        localStorage.setItem('savedPassword', password);
+                    } else {
+                        localStorage.removeItem('savedUsername');
+                        localStorage.removeItem('savedPassword');
+                    }
                     fetchAndRenderLobby();
                 } else {
                     messageDiv.textContent = 'Error: ' + data.message;

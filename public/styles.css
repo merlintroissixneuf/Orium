@@ -160,6 +160,9 @@ a:hover { text-decoration: underline; }
     width: 100%;
     transition: height 0.2s linear;
     will-change: height;
+    display: flex;
+    justify-content: center;
+    align-items: center;
 }
 #bullsFill {
     background-color: rgba(0, 255, 0, 0.35);
@@ -170,21 +173,17 @@ a:hover { text-decoration: underline; }
     top: 0;
 }
 .arena-text {
-    position: absolute;
     font-family: 'Press Start 2P', cursive;
     color: rgba(255, 255, 255, 0.7);
     text-align: center;
-    width: 100%;
     z-index: 1;
     pointer-events: none;
     transition: font-size 0.2s linear;
 }
 #bullsText {
-    bottom: 10px;
     text-shadow: 2px 2px #00FF00;
 }
 #bearsText {
-    top: 10px;
     text-shadow: 2px 2px #FF0000;
 }
 .arena-foreground {
@@ -206,14 +205,16 @@ a:hover { text-decoration: underline; }
 }
 .faction-scores {
     display: flex;
-    justify-content: space-around;
+    justify-content: center;
     margin-top: 1.5rem;
     font-size: 1em;
+    text-align: center;
 }
 .score-box {
     padding: 0.5rem 1rem;
     border: 2px solid;
     background-color: rgba(0,0,0,0.5);
+    margin: 0 1rem;
 }
 #bullsScore {
     border-color: #00FF00;

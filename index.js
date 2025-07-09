@@ -277,7 +277,7 @@ app.post('/api/register', async (req, res) => {
         const newUserQuery = `INSERT INTO users (username, email, hashed_password, verification_token) VALUES ($1, $2, $3, $4) RETURNING id;`;
         const { rows } = await pool.query(newUserQuery, [username, email, hashedPassword, verificationToken]);
         await pool.query('INSERT INTO wallets (user_id) VALUES ($1)', [rows[0].id]);
-        const verificationUrl = `https://${req.headers.host}/api/verify?token=${verificationToken}`;
+        const verificationUrl = `https://${req.headers.host}/public/verify?token=${verificationToken}`;
         await transporter.sendMail({ from: `"Orium.fun" <${process.env.EMAIL_USER}>`, to: email, subject: 'Verify Your Email Address', html: `<b>Please click the link to verify your email:</b> <a href="${verificationUrl}">${verificationUrl}</a>` });
         res.status(201).json({ message: 'Registration successful! Please check your email (and spam folder) to verify your account.' });
     } catch (error) {
@@ -295,7 +295,7 @@ app.get('/api/verify', async (req, res) => {
         const user = rows[0];
         if (!user) return res.status(400).send('Invalid verification token.');
         await pool.query('UPDATE users SET is_verified = TRUE, verification_token = NULL WHERE id = $1', [user.id]);
-        res.redirect('/verified.html');
+        res.redirect('/public/verified.html');
     } catch (error) {
         console.error(error);
         res.status(500).send('Server error.');
@@ -303,10 +303,13 @@ app.get('/api/verify', async (req, res) => {
 });
 
 app.post('/api/login', async (req, res) => {
-    const { email, password } = req.body;
-    if (!email || !password) return res.status(400).json({ message: 'Email and password are required.' });
+    const { identifier, password, remember } = req.body;
+    if (!identifier || !password) return res.status(400).json({ message: 'Identifier and password are required.' });
     try {
-        const { rows } = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+        const { rows } = await pool.query(
+            'SELECT * FROM users WHERE email = $1 OR username = $1',
+            [identifier]
+        );
         const user = rows[0];
         if (!user) return res.status(401).json({ message: 'Invalid credentials.' });
         if (!user.is_verified) return res.status(403).json({ message: 'Please verify your email address before logging in.' });
@@ -330,7 +333,7 @@ app.post('/api/forgot-password', async (req, res) => {
         const resetToken = crypto.randomBytes(32).toString('hex');
         const expires = new Date(Date.now() + 3600000);
         await pool.query('UPDATE users SET password_reset_token = $1, password_reset_expires = $2 WHERE email = $3', [resetToken, expires, email]);
-        const resetUrl = `https://${req.headers.host}/reset-password.html?token=${resetToken}`;
+        const resetUrl = `https://${req.headers.host}/public/reset-password.html?token=${resetToken}`;
         await transporter.sendMail({ from: `"Orium.fun" <${process.env.EMAIL_USER}>`, to: email, subject: 'Password Reset Request', html: `<b>You requested a password reset. Click the link to set a new password:</b> <a href="${resetUrl}">${resetUrl}</a>` });
         res.json({ message: 'If a user with that email exists, a password reset link has been sent.' });
     } catch (error) {
@@ -391,17 +394,16 @@ app.post('/api/matchmaking/join', verifyToken, async (req, res) => {
         const playersToStart = matchmakingQueue.splice(0, MATCH_SIZE);
         await createMatch(playersToStart, playersToStart);
     } else {
-        // Add bots immediately to reach MATCH_SIZE
         const realPlayersInQueue = [...matchmakingQueue];
         const spotsToFill = MATCH_SIZE - realPlayersInQueue.length;
         if (spotsToFill > 0) {
-            const botQuery = `SELECT id FROM users WHERE username LIKE 'bot%' LIMIT $1;`; // Remove active match exclusion
+            const botQuery = `SELECT id FROM users WHERE username LIKE 'bot%' LIMIT $1;`;
             const { rows } = await pool.query(botQuery, [spotsToFill]);
             const botPlayers = rows.map(bot => ({ userId: bot.id }));
             console.log(`Fetched ${botPlayers.length} bots for match`);
             const playersToStart = [...realPlayersInQueue, ...botPlayers];
             if (playersToStart.length >= MATCH_SIZE) {
-                matchmakingQueue.splice(0, realPlayersInQueue.length); // Clear real players
+                matchmakingQueue.splice(0, realPlayersInQueue.length);
                 await createMatch(playersToStart, realPlayersInQueue);
             }
         }
