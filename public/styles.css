@@ -293,20 +293,34 @@ a:hover { text-decoration: underline; }
     font-size: 1em;
     margin-top: 1rem;
 }
-.toggle-remember {
-    display: block;
+/* --- Checkbox Styling --- */
+label {
+    display: flex;
     align-items: center;
     margin: 0.5rem 0 1rem;
     font-size: 0.7em;
-    cursor: pointer;
-    padding: 0.3rem 0.5rem;
+}
+input[type="checkbox"] {
+    margin-right: 0.5rem;
+    appearance: none;
+    width: 1em;
+    height: 1em;
     border: 1px solid #FFFFFF;
     background-color: #000000;
-    text-align: left;
+    cursor: pointer;
+    position: relative;
 }
-.toggle-remember.active {
+input[type="checkbox"]:checked {
     background-color: #FFFFFF;
+}
+input[type="checkbox"]:checked:after {
+    content: '✓';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
     color: #000000;
+    font-size: 0.8em;
 }
 /* --- Mobile Responsivity --- */
 @media (max-width: 480px) {
