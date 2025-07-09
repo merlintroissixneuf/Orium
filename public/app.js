@@ -66,7 +66,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     <h3>Login</h3>
                     <input type="text" id="loginIdentifier" placeholder="Username or Email" value="${savedUsername || ''}" required>
                     <input type="password" id="loginPassword" placeholder="Password" value="${savedPassword || ''}" required>
-                    <label><input type="checkbox" id="rememberMe" ${isRemembered ? 'checked' : ''}> Remember Me</label>
+                    <div class="remember-toggle ${isRemembered ? 'active' : ''}" id="rememberToggle">
+                        <span class="toggle-label">Remember Me</span>
+                    </div>
                     <button type="submit">Login</button>
                     <div class="toggle-link"><a id="showForgotPassword">Forgot Password?</a></div>
                     <div class="toggle-link">Don't have an account? <a id="showRegister">Register here</a></div>
@@ -209,10 +211,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const showLoginFromForgot = document.getElementById('showLoginFromForgot');
         const messageDiv = document.getElementById('message');
         const loadingDiv = document.getElementById('loading');
-        const rememberMe = document.getElementById('rememberMe');
+        const rememberToggle = document.getElementById('rememberToggle');
 
-        if (!loginView || !registerView || !forgotPasswordView || !loginForm || !registerForm || !forgotPasswordForm || !rememberMe) {
-            console.error('One or more auth elements not found:', { loginView, registerView, forgotPasswordView, loginForm, registerForm, forgotPasswordForm, rememberMe });
+        if (!loginView || !registerView || !forgotPasswordView || !loginForm || !registerForm || !forgotPasswordForm || !rememberToggle) {
+            console.error('One or more auth elements not found:', { loginView, registerView, forgotPasswordView, loginForm, registerForm, forgotPasswordForm, rememberToggle });
             return;
         }
 
@@ -228,6 +230,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (showForgotPassword) showForgotPassword.addEventListener('click', () => showView(forgotPasswordView));
         if (showLoginFromForgot) showLoginFromForgot.addEventListener('click', () => showView(loginView));
 
+        rememberToggle.addEventListener('click', () => {
+            const isActive = rememberToggle.classList.toggle('active');
+            console.log('Remember toggle:', isActive);
+            localStorage.setItem('remembered', isActive);
+        });
+
         const showLoading = () => { loadingDiv.classList.remove('hidden'); };
         const hideLoading = () => { loadingDiv.classList.add('hidden'); };
 
@@ -237,7 +245,7 @@ document.addEventListener('DOMContentLoaded', () => {
             showLoading();
             const identifier = document.getElementById('loginIdentifier').value;
             const password = document.getElementById('loginPassword').value;
-            const remember = rememberMe.checked;
+            const remember = rememberToggle.classList.contains('active');
             try {
                 const response = await fetch('/api/login', {
                     method: 'POST',
