@@ -57,7 +57,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     const renderLoginView = () => {
         mainContainer.innerHTML = `
-            <h2>Access</h2>
+            <h2>🪨 Orium.fun</h2>
             <div class="auth-container">
                 <form id="loginForm" class="auth-form">
                     <h3>Login</h3>
@@ -82,7 +82,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const addAuthView = () => {
-        const forgotPasswordViewHTML = `<div id="forgotPasswordView" class="hidden"><h2>Forgot Password</h2><form id="forgotPasswordForm"><p style="font-size: 0.8em; text-align: center; margin-top: 0;">Enter your email and we'll send you a reset link.</p><input type="email" id="forgotEmail" placeholder="Email" required><button type="submit">Send Reset Link</button></form><div class="toggle-link">Remembered your password? <a id="showLoginFromForgot">Login here</a></div></div>`;
+        const forgotPasswordViewHTML = `<div id="forgotPasswordView" class="hidden"><h2>🪨 Orium.fun</h2><form id="forgotPasswordForm"><p style="font-size: 0.8em; text-align: center; margin-top: 0;">Enter your email and we'll send you a reset link.</p><input type="email" id="forgotEmail" placeholder="Email" required><button type="submit">Send Reset Link</button></form><div class="toggle-link">Remembered your password? <a id="showLoginFromForgot">Login here</a></div></div>`;
         const container = document.querySelector('.container');
         container.insertAdjacentHTML('beforeend', forgotPasswordViewHTML);
         console.log('Forgot password view added');
@@ -214,6 +214,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (loginForm) loginForm.addEventListener('submit', async (event) => {
             event.preventDefault();
+            console.log('Submitting login form');
             showLoading();
             const email = document.getElementById('loginEmail').value;
             const password = document.getElementById('loginPassword').value;
@@ -242,6 +243,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (registerForm) registerForm.addEventListener('submit', async (event) => {
             event.preventDefault();
+            console.log('Submitting register form');
             showLoading();
             const username = document.getElementById('registerUsername').value;
             const email = document.getElementById('registerEmail').value;
