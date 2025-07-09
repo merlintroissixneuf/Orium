@@ -277,7 +277,7 @@ app.post('/api/register', async (req, res) => {
         const newUserQuery = `INSERT INTO users (username, email, hashed_password, verification_token) VALUES ($1, $2, $3, $4) RETURNING id;`;
         const { rows } = await pool.query(newUserQuery, [username, email, hashedPassword, verificationToken]);
         await pool.query('INSERT INTO wallets (user_id) VALUES ($1)', [rows[0].id]);
-        const verificationUrl = `https://${req.headers.host}/public/verify?token=${verificationToken}`;
+        const verificationUrl = `https://${req.headers.host}/api/verify?token=${verificationToken}`;
         await transporter.sendMail({ from: `"Orium.fun" <${process.env.EMAIL_USER}>`, to: email, subject: 'Verify Your Email Address', html: `<b>Please click the link to verify your email:</b> <a href="${verificationUrl}">${verificationUrl}</a>` });
         res.status(201).json({ message: 'Registration successful! Please check your email (and spam folder) to verify your account.' });
     } catch (error) {
@@ -293,12 +293,16 @@ app.get('/api/verify', async (req, res) => {
     try {
         const { rows } = await pool.query('SELECT * FROM users WHERE verification_token = $1', [token]);
         const user = rows[0];
-        if (!user) return res.status(400).send('Invalid verification token.');
+        if (!user) {
+            console.error('Invalid verification token:', token);
+            return res.status(400).send('Invalid verification token.');
+        }
         await pool.query('UPDATE users SET is_verified = TRUE, verification_token = NULL WHERE id = $1', [user.id]);
+        console.log('User verified successfully:', user.id);
         res.redirect('/public/verified.html');
     } catch (error) {
-        console.error(error);
-        res.status(500).send('Server error.');
+        console.error('Verification error:', error);
+        res.status(500).send('Server error during verification. Please try again or contact support.');
     }
 });
 
@@ -414,7 +418,7 @@ app.post('/api/matchmaking/join', verifyToken, async (req, res) => {
                 const spotsToFill = MATCH_SIZE - realPlayersInQueue.length;
                 const botQuery = `SELECT id FROM users WHERE username LIKE 'bot%' LIMIT $1;`;
                 const { rows } = await pool.query(botQuery, [spotsToFill]);
-                const botPlayers = rows.map(bot => ({ userId: bot.id }));
+                const botPlayers = rows.map(bot => ({ userId: bot.id}));
                 console.log(`Fetched ${botPlayers.length} bots for match`);
                 const playersToStart = [...realPlayersInQueue, ...botPlayers];
                 matchmakingQueue.length = 0;
