@@ -5,6 +5,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const timerDisplay = document.getElementById('timer');
     const bullsScoreDisplay = document.querySelector('#bullsScore');
     const bearsScoreDisplay = document.querySelector('#bearsScore');
+    const userTapCountDisplay = document.getElementById('userTapCount');
     const bullsFill = document.getElementById('bullsFill');
     const bearsFill = document.getElementById('bearsFill');
     const arenaContent = document.getElementById('arenaContent');
@@ -13,6 +14,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let startPrice = 0;
     let canTap = true;
+    let userTapCount = 0;
 
     const urlParams = new URLSearchParams(window.location.search);
     const matchId = urlParams.get('matchId');
@@ -28,6 +30,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const handleTap = () => {
         if (canTap) {
             socket.emit('playerTap', { matchId });
+            userTapCount++;
+            userTapCountDisplay.textContent = `Your Taps: ${userTapCount}`;
             canTap = false;
             setTimeout(() => { canTap = true; }, 100);
         }
