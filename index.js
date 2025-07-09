@@ -412,7 +412,7 @@ app.post('/api/reset-password', async (req, res) => {
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);
         await pool.query('UPDATE users SET hashed_password = $1, password_reset_token = NULL, password_reset_expires = NULL WHERE id = $2', [hashedPassword, user.id]);
-        res.json({ message: 'Password has been reset successfully.', redirect: '/public/verified.html' });
+        res.json({ message: 'Password has been reset successfully.', redirect: '/login' }); // Changed redirect to /login
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Server error.' });
