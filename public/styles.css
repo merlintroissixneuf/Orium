@@ -25,6 +25,12 @@ h1, h2 {
     margin-bottom: 2rem;
     text-shadow: 2px 2px #000;
 }
+h3 { 
+    color: #00FF00; 
+    font-size: 1.2em;
+    margin-bottom: 1rem;
+    text-shadow: 1px 1px #000;
+}
 p {
     line-height: 1.5;
 }
@@ -252,4 +258,28 @@ a:hover { text-decoration: underline; }
     padding: 0.5rem;
     border: 1px solid #FFFFFF;
     background-color: rgba(0, 0, 0, 0.5);
+}
+/* --- Auth Styles --- */
+.auth-container {
+    display: flex;
+    justify-content: space-between;
+    gap: 2rem;
+    margin-bottom: 1rem;
+}
+.auth-form {
+    flex: 1;
+    padding: 1rem;
+    border: 2px solid #FFFFFF;
+    background-color: rgba(0, 0, 0, 0.5);
+}
+.divider {
+    width: 2px;
+    background-color: #FFFFFF;
+    opacity: 0.5;
+}
+#loading {
+    text-align: center;
+    color: #00FF00;
+    font-size: 1em;
+    margin-top: 1rem;
 }

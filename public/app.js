@@ -57,30 +57,35 @@ document.addEventListener('DOMContentLoaded', () => {
     
     const renderLoginView = () => {
         mainContainer.innerHTML = `
-            <h2>Login</h2>
-            <form id="loginForm">
-                <input type="email" id="loginEmail" placeholder="Email" required>
-                <input type="password" id="loginPassword" placeholder="Password" required>
-                <button type="submit">Login</button>
-            </form>
-            <div class="toggle-link"><a id="showForgotPassword">Forgot Password?</a></div>
-            <div class="toggle-link">Don't have an account? <a id="showRegister">Register here</a></div>
+            <h2>Access</h2>
+            <div class="auth-container">
+                <form id="loginForm" class="auth-form">
+                    <h3>Login</h3>
+                    <input type="email" id="loginEmail" placeholder="Email" required>
+                    <input type="password" id="loginPassword" placeholder="Password" required>
+                    <button type="submit">Login</button>
+                    <div class="toggle-link"><a id="showForgotPassword">Forgot Password?</a></div>
+                </form>
+                <div class="divider"></div>
+                <form id="registerForm" class="auth-form">
+                    <h3>Register</h3>
+                    <input type="text" id="registerUsername" placeholder="Username" required>
+                    <input type="email" id="registerEmail" placeholder="Email" required>
+                    <input type="password" id="registerPassword" placeholder="Password" required>
+                    <button type="submit">Create Account</button>
+                </form>
+            </div>
             <div id="message"></div>
+            <div id="loading" class="hidden">Processing...</div>
         `;
-        addAuthView();
+        attachAuthFormListeners();
     };
 
     const addAuthView = () => {
-        const existingContainer = document.querySelector('.container');
-        const authHTML = `<div id="registerView" class="hidden"><h2>Register</h2><form id="registerForm"><input type="text" id="registerUsername" placeholder="Username" required><input type="email" id="registerEmail" placeholder="Email" required><input type="password" id="registerPassword" placeholder="Password" required><button type="submit">Create Account</button></form><div class="toggle-link">Already have an account? <a id="showLogin">Login here</a></div></div><div id="forgotPasswordView" class="hidden"><h2>Forgot Password</h2><form id="forgotPasswordForm"><p style="font-size: 0.8em; text-align: center; margin-top: 0;">Enter your email and we'll send you a reset link.</p><input type="email" id="forgotEmail" placeholder="Email" required><button type="submit">Send Reset Link</button></form><div class="toggle-link">Remembered your password? <a id="showLoginFromForgot">Login here</a></div></div>`;
-        const messageDiv = document.getElementById('message');
-        if (messageDiv) {
-            messageDiv.insertAdjacentHTML('beforebegin', authHTML);
-            console.log('Auth views added successfully');
-        } else {
-            existingContainer.innerHTML += authHTML;
-            console.log('Auth views appended to container');
-        }
+        const forgotPasswordViewHTML = `<div id="forgotPasswordView" class="hidden"><h2>Forgot Password</h2><form id="forgotPasswordForm"><p style="font-size: 0.8em; text-align: center; margin-top: 0;">Enter your email and we'll send you a reset link.</p><input type="email" id="forgotEmail" placeholder="Email" required><button type="submit">Send Reset Link</button></form><div class="toggle-link">Remembered your password? <a id="showLoginFromForgot">Login here</a></div></div>`;
+        const container = document.querySelector('.container');
+        container.insertAdjacentHTML('beforeend', forgotPasswordViewHTML);
+        console.log('Forgot password view added');
         attachAuthFormListeners();
     };
 
@@ -176,37 +181,68 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     
     const attachAuthFormListeners = () => {
-        const loginView = document.querySelector('#loginForm')?.parentElement;
-        const registerView = document.getElementById('registerView');
-        const forgotPasswordView = document.getElementById('forgotPasswordView');
         const loginForm = document.getElementById('loginForm');
         const registerForm = document.getElementById('registerForm');
         const forgotPasswordForm = document.getElementById('forgotPasswordForm');
-        const showRegister = document.getElementById('showRegister');
-        const showLogin = document.getElementById('showLogin');
         const showForgotPassword = document.getElementById('showForgotPassword');
         const showLoginFromForgot = document.getElementById('showLoginFromForgot');
         const messageDiv = document.getElementById('message');
+        const loadingDiv = document.getElementById('loading');
 
-        if (!loginView || !registerView || !forgotPasswordView) {
-            console.error('One or more auth views not found:', { loginView, registerView, forgotPasswordView });
+        if (!loginForm || !registerForm || !forgotPasswordForm) {
+            console.error('One or more auth forms not found:', { loginForm, registerForm, forgotPasswordForm });
             return;
         }
 
-        const showView = (viewToShow) => {
-            [loginView, registerView, forgotPasswordView].forEach(view => view.classList.add('hidden'));
-            viewToShow.classList.remove('hidden');
+        const showForgotPasswordView = () => {
+            [loginForm.parentElement, registerForm.parentElement, forgotPasswordForm.parentElement].forEach(el => el.classList.add('hidden'));
+            forgotPasswordForm.parentElement.classList.remove('hidden');
             messageDiv.textContent = '';
             messageDiv.className = '';
         };
 
-        if (showRegister) showRegister.addEventListener('click', () => showView(registerView));
-        if (showLogin) showLogin.addEventListener('click', () => showView(loginView));
-        if (showForgotPassword) showForgotPassword.addEventListener('click', () => showView(forgotPasswordView));
-        if (showLoginFromForgot) showLoginFromForgot.addEventListener('click', () => showView(loginView));
+        if (showForgotPassword) showForgotPassword.addEventListener('click', showForgotPasswordView);
+        if (showLoginFromForgot) showLoginFromForgot.addEventListener('click', () => {
+            [forgotPasswordForm.parentElement, registerForm.parentElement].forEach(el => el.classList.add('hidden'));
+            loginForm.parentElement.classList.remove('hidden');
+            messageDiv.textContent = '';
+            messageDiv.className = '';
+        });
+
+        const showLoading = () => { loadingDiv.classList.remove('hidden'); };
+        const hideLoading = () => { loadingDiv.classList.add('hidden'); };
+
+        if (loginForm) loginForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            showLoading();
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+            try {
+                const response = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password }),
+                });
+                const data = await response.json();
+                if (response.ok) {
+                    localStorage.setItem('authToken', data.token);
+                    fetchAndRenderLobby();
+                } else {
+                    messageDiv.textContent = 'Error: ' + data.message;
+                    messageDiv.className = 'error';
+                }
+            } catch (error) {
+                console.error('Login error:', error);
+                messageDiv.textContent = 'Error: Failed to login. Please try again.';
+                messageDiv.className = 'error';
+            } finally {
+                hideLoading();
+            }
+        });
 
         if (registerForm) registerForm.addEventListener('submit', async (event) => {
             event.preventDefault();
+            showLoading();
             const username = document.getElementById('registerUsername').value;
             const email = document.getElementById('registerEmail').value;
             const password = document.getElementById('registerPassword').value;
@@ -224,31 +260,31 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.error('Registration error:', error);
                 messageDiv.textContent = 'Error: Failed to register. Please try again.';
                 messageDiv.className = 'error';
-            }
-        });
-
-        if (loginForm) loginForm.addEventListener('submit', async (event) => {
-            event.preventDefault();
-            const email = document.getElementById('loginEmail').value;
-            const password = document.getElementById('loginPassword').value;
-            const response = await fetch('/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }), });
-            const data = await response.json();
-            if (response.ok) {
-                localStorage.setItem('authToken', data.token);
-                fetchAndRenderLobby();
-            } else {
-                messageDiv.textContent = 'Error: ' + data.message;
-                messageDiv.className = 'error';
+            } finally {
+                hideLoading();
             }
         });
 
         if (forgotPasswordForm) forgotPasswordForm.addEventListener('submit', async (event) => {
             event.preventDefault();
+            showLoading();
             const email = document.getElementById('forgotEmail').value;
-            const response = await fetch('/api/forgot-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }), });
-            const data = await response.json();
-            messageDiv.textContent = data.message;
-            messageDiv.className = response.ok ? 'success' : 'error';
+            try {
+                const response = await fetch('/api/forgot-password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email }),
+                });
+                const data = await response.json();
+                messageDiv.textContent = data.message;
+                messageDiv.className = response.ok ? 'success' : 'error';
+            } catch (error) {
+                console.error('Forgot password error:', error);
+                messageDiv.textContent = 'Error: Failed to send reset link. Please try again.';
+                messageDiv.className = 'error';
+            } finally {
+                hideLoading();
+            }
         });
     };
 
