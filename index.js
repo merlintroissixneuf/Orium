@@ -331,13 +331,19 @@ app.get('/api/verify', async (req, res) => {
             await client.query('ROLLBACK');
             return res.status(400).send('Invalid verification token.');
         }
+        // Check if already verified or used
+        if (user.is_verified || user.verification_used) {
+            console.log('Token already used or user verified:', { userId: user.id, is_verified: user.is_verified, verification_used: user.verification_used });
+            await client.query('ROLLBACK');
+            return res.status(400).send('This verification token has already been used.');
+        }
         // Verify token before update
         if (user.verification_token !== token) {
             console.error('Token mismatch in database:', { dbToken: user.verification_token, received: token });
             await client.query('ROLLBACK');
             return res.status(400).send('Token mismatch detected.');
         }
-        await client.query('UPDATE users SET is_verified = TRUE, verification_token = NULL, verification_used = NOW() WHERE id = $1', [user.id]); // Add verification_used timestamp
+        await client.query('UPDATE users SET is_verified = TRUE, verification_token = NULL, verification_used = NOW() WHERE id = $1', [user.id]);
         // Confirm update
         const updatedUser = await client.query('SELECT is_verified, verification_token, verification_used FROM users WHERE id = $1', [user.id]);
         console.log('Post-update state:', updatedUser.rows[0]);
@@ -409,9 +415,14 @@ app.post('/api/reset-password', async (req, res) => {
         const { rows } = await pool.query('SELECT * FROM users WHERE password_reset_token = $1 AND password_reset_expires > NOW() FOR UPDATE', [token]);
         const user = rows[0];
         if (!user) return res.status(400).json({ message: 'Password reset token is invalid or has expired.' });
+        // Check if already reset
+        if (user.reset_used) {
+            console.log('Reset token already used:', { userId: user.id, reset_used: user.reset_used });
+            return res.status(400).json({ message: 'This reset token has already been used.' });
+        }
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);
-        await pool.query('UPDATE users SET hashed_password = $1, password_reset_token = NULL, password_reset_expires = NULL, reset_used = NOW() WHERE id = $2', [hashedPassword, user.id]); // Add reset_used timestamp
+        await pool.query('UPDATE users SET hashed_password = $1, password_reset_token = NULL, password_reset_expires = NULL, reset_used = NOW() WHERE id = $2', [hashedPassword, user.id]);
         const updatedUser = await pool.query('SELECT password_reset_token, reset_used FROM users WHERE id = $1', [user.id]);
         console.log('Post-reset state:', updatedUser.rows[0]);
         res.json({ message: 'Password has been reset successfully.', redirect: '/login' });
