@@ -55,6 +55,29 @@ document.addEventListener('DOMContentLoaded', () => {
         attachLobbyListeners();
     };
     
+    const renderLoginView = () => {
+        mainContainer.innerHTML = `
+            <h2>Login</h2>
+            <form id="loginForm">
+                <input type="email" id="loginEmail" placeholder="Email" required>
+                <input type="password" id="loginPassword" placeholder="Password" required>
+                <button type="submit">Login</button>
+            </form>
+            <div class="toggle-link"><a id="showForgotPassword">Forgot Password?</a></div>
+            <div class="toggle-link">Don't have an account? <a id="showRegister">Register here</a></div>
+            <div id="message"></div>
+        `;
+        addAuthView();
+    };
+
+    const addAuthView = () => {
+        const existingContainer = document.querySelector('.container');
+        const authHTML = `<div id="registerView" class="hidden"><h2>Register</h2><form id="registerForm"><input type="text" id="registerUsername" placeholder="Username" required><input type="email" id="registerEmail" placeholder="Email" required><input type="password" id="registerPassword" placeholder="Password" required><button type="submit">Create Account</button></form><div class="toggle-link">Already have an account? <a id="showLogin">Login here</a></div></div><div id="forgotPasswordView" class="hidden"><h2>Forgot Password</h2><form id="forgotPasswordForm"><p style="font-size: 0.8em; text-align: center; margin-top: 0;">Enter your email and we'll send you a reset link.</p><input type="email" id="forgotEmail" placeholder="Email" required><button type="submit">Send Reset Link</button></form><div class="toggle-link">Remembered your password? <a id="showLoginFromForgot">Login here</a></div></div>`;
+        const messageDiv = document.getElementById('message');
+        if (messageDiv) { messageDiv.insertAdjacentHTML('beforebegin', authHTML); } else { existingContainer.innerHTML += authHTML; }
+        attachAuthFormListeners();
+    };
+
     const attachLobbyListeners = () => {
         document.getElementById('logoutButton').addEventListener('click', () => {
             localStorage.removeItem('authToken');
@@ -80,8 +103,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         mayhemMessage.textContent = 'In queue, waiting...';
                         playButton.textContent = 'Cancel';
                         playButton.style.borderColor = '#FF0000';
-                        playButton.disabled = true; // Disable for 5 seconds
-                        setTimeout(() => { playButton.disabled = false; }, 5000); // Enable after 5s
+                        playButton.disabled = true;
+                        setTimeout(() => { playButton.disabled = false; }, 5000);
                         pollingInterval = setInterval(checkMatchmakingStatus, 2000);
                     } else {
                         mayhemMessage.textContent = `Error: ${data.message}`;
@@ -146,31 +169,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
     
-    const renderLoginView = () => {
-        mainContainer.innerHTML = `
-            <h2>Login</h2>
-            <form id="loginForm">
-                <input type="email" id="loginEmail" placeholder="Email" required>
-                <input type="password" id="loginPassword" placeholder="Password" required>
-                <button type="submit">Login</button>
-            </form>
-            <div class="toggle-link"><a id="showForgotPassword">Forgot Password?</a></div>
-            <div class="toggle-link">Don't have an account? <a id="showRegister">Register here</a></div>
-            <div id="message"></div>
-        `;
-        addAuthView();
-    };
-
-    const addAuthView = () => {
-        const existingContainer = document.querySelector('.container');
-        const authHTML = `<div id="registerView" class="hidden"><h2>Register</h2><form id="registerForm"><input type="text" id="registerUsername" placeholder="Username" required><input type="email" id="registerEmail" placeholder="Email" required><input type="password" id="registerPassword" placeholder="Password" required><button type="submit">Create Account</button></form><div class="toggle-link">Already have an account? <a id="showLogin">Login here</a></div></div><div id="forgotPasswordView" class="hidden"><h2>Forgot Password</h2><form id="forgotPasswordForm"><p style="font-size: 0.8em; text-align: center; margin-top: 0;">Enter your email and we'll send you a reset link.</p><input type="email" id="forgotEmail" placeholder="Email" required><button type="submit">Send Reset Link</button></form><div class="toggle-link">Remembered your password? <a id="showLoginFromForgot">Login here</a></div></div>`;
-        const messageDiv = document.getElementById('message');
-        if (messageDiv) { messageDiv.insertAdjacentHTML('beforebegin', authHTML); } else { existingContainer.innerHTML += authHTML; }
-        attachAuthFormListeners();
-    };
-
     const attachAuthFormListeners = () => {
-        const loginView = document.getElementById('loginView');
+        const loginView = document.querySelector('#loginForm')?.parentElement;
         const registerView = document.getElementById('registerView');
         const forgotPasswordView = document.getElementById('forgotPasswordView');
         const loginForm = document.getElementById('loginForm');
@@ -201,11 +201,21 @@ document.addEventListener('DOMContentLoaded', () => {
             const username = document.getElementById('registerUsername').value;
             const email = document.getElementById('registerEmail').value;
             const password = document.getElementById('registerPassword').value;
-            const response = await fetch('/api/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, email, password }), });
-            const data = await response.json();
-            messageDiv.textContent = data.message;
-            messageDiv.className = response.ok ? 'success' : 'error';
-            if (response.ok) registerForm.reset();
+            try {
+                const response = await fetch('/api/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, email, password }),
+                });
+                const data = await response.json();
+                messageDiv.textContent = data.message;
+                messageDiv.className = response.ok ? 'success' : 'error';
+                if (response.ok) registerForm.reset();
+            } catch (error) {
+                console.error('Registration error:', error);
+                messageDiv.textContent = 'Error: Failed to register. Please try again.';
+                messageDiv.className = 'error';
+            }
         });
 
         if (loginForm) loginForm.addEventListener('submit', async (event) => {
