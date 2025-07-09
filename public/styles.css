@@ -207,34 +207,6 @@ a:hover { text-decoration: underline; }
     padding-bottom: 1rem;
     border-bottom: 2px solid #FFFFFF;
 }
-.faction-scores {
-    display: flex;
-    justify-content: center;
-    margin: 1rem 0;
-    font-size: 1em;
-    text-align: center;
-    flex-direction: column;
-    align-items: center;
-}
-.score-box {
-    padding: 0.5rem 1rem;
-    border: 2px solid;
-    background-color: rgba(0,0,0,0.5);
-    margin: 0.5rem 0;
-    width: 200px;
-}
-#bullsScore {
-    border-color: #00FF00;
-    color: #00FF00;
-}
-#bearsScore {
-    border-color: #FF0000;
-    color: #FF0000;
-}
-#userTapCount {
-    border-color: #FFFFFF;
-    color: #FFFFFF;
-}
 .chart-container {
     height: 250px;
     display: flex;
@@ -269,6 +241,32 @@ a:hover { text-decoration: underline; }
     padding: 0.5rem;
     border: 1px solid #FFFFFF;
     background-color: rgba(0, 0, 0, 0.5);
+}
+.score-panel {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 1rem;
+    width: 100%;
+}
+.score-box {
+    flex: 1;
+    padding: 0.5rem;
+    border: 2px solid;
+    background-color: rgba(0, 0, 0, 0.5);
+    text-align: center;
+    margin: 0 0.5rem;
+}
+#bullsScore {
+    border-color: #00FF00;
+    color: #00FF00;
+}
+#bearsScore {
+    border-color: #FF0000;
+    color: #FF0000;
+}
+#userTapCount {
+    border-color: #FFFFFF;
+    color: #FFFFFF;
 }
 /* --- Auth Styles --- */
 .auth-container {
@@ -314,8 +312,12 @@ a:hover { text-decoration: underline; }
     .arena-container {
         padding: 1rem;
     }
+    .score-panel {
+        flex-direction: column;
+        gap: 1rem;
+    }
     .score-box {
-        width: 150px;
+        width: 100%;
     }
 }
 /* --- Custom Checkbox --- */
@@ -333,8 +335,14 @@ input[type="checkbox"] + label:before {
     color: #FFFFFF;
     margin-right: 0.5rem;
     font-size: 1em;
+    display: inline-block;
+    width: 1em;
+    height: 1em;
+    text-align: center;
 }
 input[type="checkbox"]:checked + label:before {
-    content: '⬛';
-    color: #00FF00;
+    content: '⬜';
+    background-color: #FFFFFF;
+    color: #000000;
+    border-radius: 2px;
 }
