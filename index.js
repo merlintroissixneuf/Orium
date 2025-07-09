@@ -315,7 +315,7 @@ app.post('/api/register', async (req, res) => {
 
 app.get('/api/verify', async (req, res) => {
     const { token } = req.query;
-    console.log('Received verification token:', token); // Log the incoming token
+    console.log('Received verification token:', token);
     if (!token) {
         console.error('Missing verification token');
         return res.status(400).send('Verification token is missing.');
@@ -331,8 +331,16 @@ app.get('/api/verify', async (req, res) => {
             await client.query('ROLLBACK');
             return res.status(400).send('Invalid verification token.');
         }
+        // Verify token before update
+        if (user.verification_token !== token) {
+            console.error('Token mismatch in database:', { dbToken: user.verification_token, received: token });
+            await client.query('ROLLBACK');
+            return res.status(400).send('Token mismatch detected.');
+        }
         await client.query('UPDATE users SET is_verified = TRUE, verification_token = NULL WHERE id = $1', [user.id]);
-        console.log('User verified successfully:', user.id);
+        // Confirm update
+        const updatedUser = await client.query('SELECT is_verified, verification_token FROM users WHERE id = $1', [user.id]);
+        console.log('Post-update state:', updatedUser.rows[0]);
         await client.query('COMMIT');
         res.set('Content-Type', 'text/html');
         res.sendFile(path.join(__dirname, 'public', 'verified.html'));
@@ -376,13 +384,22 @@ app.post('/api/forgot-password', async (req, res) => {
         const resetToken = crypto.randomBytes(32).toString('hex');
         const expires = new Date(Date.now() + 3600000);
         await pool.query('UPDATE users SET password_reset_token = $1, password_reset_expires = $2 WHERE email = $3', [resetToken, expires, email]);
-        const resetUrl = `https://${req.headers.host}/public/reset-password.html?token=${resetToken}`;
+        const resetUrl = `https://${req.headers.host}/api/reset-password?token=${resetToken}`;
         await transporter.sendMail({ from: `"Orium.fun" <${process.env.EMAIL_USER}>`, to: email, subject: 'Password Reset Request', html: `<b>You requested a password reset. Click the link to set a new password:</b> <a href="${resetUrl}">${resetUrl}</a>` });
         res.json({ message: 'If a user with that email exists, a password reset link has been sent.' });
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Server error.' });
     }
+});
+
+app.get('/api/reset-password', async (req, res) => {
+    const { token } = req.query;
+    if (!token) {
+        console.error('Missing reset token');
+        return res.status(400).send('Reset token is missing.');
+    }
+    res.sendFile(path.join(__dirname, 'public', 'reset-password.html'));
 });
 
 app.post('/api/reset-password', async (req, res) => {
@@ -395,7 +412,7 @@ app.post('/api/reset-password', async (req, res) => {
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);
         await pool.query('UPDATE users SET hashed_password = $1, password_reset_token = NULL, password_reset_expires = NULL WHERE id = $2', [hashedPassword, user.id]);
-        res.json({ message: 'Password has been reset successfully.' });
+        res.json({ message: 'Password has been reset successfully.', redirect: '/public/verified.html' });
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Server error.' });
