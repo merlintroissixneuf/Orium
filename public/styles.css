@@ -57,6 +57,7 @@ button {
     font-weight: bold; 
     cursor: pointer; 
     text-transform: uppercase;
+    margin-top: 1rem;
 }
 button:hover {
     background-color: #000000;
@@ -197,7 +198,7 @@ a:hover { text-decoration: underline; }
     width: 100%;
     pointer-events: none;
 }
-.arena-header, .faction-scores, .chart-container, .controls {
+.arena-header, .chart-container, .controls {
     text-shadow: 1px 1px 3px #000;
 }
 .arena-header {
@@ -292,6 +293,21 @@ a:hover { text-decoration: underline; }
     font-size: 1em;
     margin-top: 1rem;
 }
+.toggle-remember {
+    display: block;
+    align-items: center;
+    margin: 0.5rem 0 1rem;
+    font-size: 0.7em;
+    cursor: pointer;
+    padding: 0.3rem 0.5rem;
+    border: 1px solid #FFFFFF;
+    background-color: #000000;
+    text-align: left;
+}
+.toggle-remember.active {
+    background-color: #FFFFFF;
+    color: #000000;
+}
 /* --- Mobile Responsivity --- */
 @media (max-width: 480px) {
     .container {
@@ -319,30 +335,4 @@ a:hover { text-decoration: underline; }
     .score-box {
         width: 100%;
     }
-}
-/* --- Custom Checkbox --- */
-label {
-    display: flex;
-    align-items: center;
-    margin-bottom: 1rem;
-    font-size: 0.7em;
-}
-input[type="checkbox"] {
-    display: none;
-}
-input[type="checkbox"] + label:before {
-    content: '⬜';
-    color: #FFFFFF;
-    margin-right: 0.5rem;
-    font-size: 1em;
-    display: inline-block;
-    width: 1em;
-    height: 1em;
-    text-align: center;
-}
-input[type="checkbox"]:checked + label:before {
-    content: '⬜';
-    background-color: #FFFFFF;
-    color: #000000;
-    border-radius: 2px;
 }

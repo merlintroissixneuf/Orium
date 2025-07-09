@@ -230,6 +230,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         rememberToggle.addEventListener('click', () => {
             const isActive = rememberToggle.classList.toggle('active');
+            console.log('Remember toggle:', isActive);
             localStorage.setItem('remembered', isActive);
         });
 
