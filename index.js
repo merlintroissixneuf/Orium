@@ -149,7 +149,7 @@ const createMatch = async (players, realPlayersInQueue) => {
         const bullCount = Math.ceil(shuffledPlayers.length / 2);
         for (const [index, player] of shuffledPlayers.entries()) {
             player.faction = index < bullCount ? 'BULLS' : 'BEARS';
-            const insertResult = await pool.query(
+            const insertResult = await client.query(
                 `INSERT INTO match_players (match_id, user_id, faction) VALUES ($1, $2, $3) RETURNING *;`,
                 [matchId, player.userId, player.faction]
             );
@@ -272,18 +272,35 @@ app.post('/api/register', async (req, res) => {
     if (!username || !email || !password) return res.status(400).json({ message: 'All fields are required.' });
     try {
         const verificationToken = crypto.randomBytes(32).toString('hex');
+        console.log('Generated verification token:', verificationToken);
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);
-        const newUserQuery = `INSERT INTO users (username, email, hashed_password, verification_token) VALUES ($1, $2, $3, $4) RETURNING id;`;
+        const newUserQuery = `INSERT INTO users (username, email, hashed_password, verification_token, is_verified) VALUES ($1, $2, $3, $4, FALSE) RETURNING id, verification_token;`;
         const { rows } = await pool.query(newUserQuery, [username, email, hashedPassword, verificationToken]);
-        await pool.query('INSERT INTO wallets (user_id) VALUES ($1)', [rows[0].id]);
+        if (rows.length === 0) {
+            throw new Error('Failed to insert user');
+        }
+        const userId = rows[0].id;
+        const storedToken = rows[0].verification_token;
+        console.log('User inserted:', { userId, storedToken });
+        await pool.query('INSERT INTO wallets (user_id) VALUES ($1)', [userId]);
         const verificationUrl = `https://${req.headers.host}/api/verify?token=${verificationToken}`;
-        await transporter.sendMail({ from: `"Orium.fun" <${process.env.EMAIL_USER}>`, to: email, subject: 'Verify Your Email Address', html: `<b>Please click the link to verify your email:</b> <a href="${verificationUrl}">${verificationUrl}</a>` });
+        console.log('Sending verification email to:', email, 'with URL:', verificationUrl);
+        await transporter.sendMail({
+            from: `"Orium.fun" <${process.env.EMAIL_USER}>`,
+            to: email,
+            subject: 'Verify Your Email Address',
+            html: `<b>Please click the link to verify your email:</b> <a href="${verificationUrl}">${verificationUrl}</a>`
+        });
+        console.log('Email sent successfully');
         res.status(201).json({ message: 'Registration successful! Please check your email (and spam folder) to verify your account.' });
     } catch (error) {
-        if (error.code === '23505') return res.status(409).json({ message: 'Username or email already exists.' });
-        console.error(error);
-        res.status(500).json({ message: 'Server error.' });
+        if (error.code === '23505') {
+            console.error('Duplicate username or email:', error);
+            return res.status(409).json({ message: 'Username or email already exists.' });
+        }
+        console.error('Registration error:', error.stack);
+        res.status(500).json({ message: 'Server error during registration. Please try again.' });
     }
 });
 
@@ -302,11 +319,10 @@ app.get('/api/verify', async (req, res) => {
         }
         await pool.query('UPDATE users SET is_verified = TRUE, verification_token = NULL WHERE id = $1', [user.id]);
         console.log('User verified successfully:', user.id);
-        // Serve verified.html directly to avoid redirect issues
         res.set('Content-Type', 'text/html');
         res.sendFile(path.join(__dirname, 'public', 'verified.html'));
     } catch (error) {
-        console.error('Verification error:', error);
+        console.error('Verification error:', error.stack);
         res.status(500).send('Server error during verification. Please try again or contact support.');
     }
 });
