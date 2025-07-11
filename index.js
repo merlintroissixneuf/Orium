@@ -37,10 +37,14 @@ const matchmakingQueue = [];
 const activeMatchStatus = new Map();
 const activeMatchTimers = new Map();
 const botIntervals = new Map();
+const tapTimestamps = new Map(); // Key: `${userId}-${matchId}`, Value: array of timestamps
 const MATCH_SIZE = 10;
 const MATCHMAKING_TIMEOUT = 10000;
 const MATCH_DURATION_SECONDS = 60;
 const MAX_PRICE_SWING = 15.00;
+const MIN_TAP_INTERVAL = 50; // ms
+const VARIANCE_THRESHOLD = 20; // ms std dev
+const BURST_THRESHOLD = 0.1; // 10% bursts <30ms
 let matchmakingTimer = null;
 
 // Initialize bot users if they don't exist
@@ -96,6 +100,16 @@ const socketAuthMiddleware = (socket, next) => {
 };
 
 const handleTap = async (matchId, userId, faction) => {
+    const key = `${userId}-${matchId}`;
+    const now = Date.now();
+    if (!tapTimestamps.has(key)) tapTimestamps.set(key, []);
+    const timestamps = tapTimestamps.get(key);
+    if (timestamps.length > 0 && now - timestamps[timestamps.length - 1] < MIN_TAP_INTERVAL) {
+        console.log(`Tap rate-limited for user ${userId} in match ${matchId}`);
+        return;
+    }
+    timestamps.push(now);
+
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
@@ -133,6 +147,19 @@ const handleTap = async (matchId, userId, faction) => {
     } finally {
         client.release();
     }
+};
+
+const analyzeTaps = (timestamps) => {
+    if (timestamps.length < 10) return false; // Not enough data
+    const intervals = [];
+    for (let i = 1; i < timestamps.length; i++) {
+        intervals.push(timestamps[i] - timestamps[i - 1]);
+    }
+    const avgInterval = intervals.reduce((sum, val) => sum + val, 0) / intervals.length;
+    const variance = Math.sqrt(intervals.reduce((sum, val) => sum + Math.pow(val - avgInterval, 2), 0) / intervals.length);
+    const bursts = intervals.filter(int => int < 30).length / intervals.length;
+    const isBot = avgInterval < MIN_TAP_INTERVAL || variance < VARIANCE_THRESHOLD || bursts > BURST_THRESHOLD;
+    return isBot;
 };
 
 const createMatch = async (players, realPlayersInQueue) => {
@@ -209,7 +236,7 @@ const createMatch = async (players, realPlayersInQueue) => {
                 const winningFaction = current_price > start_price ? 'BULLS' : 'BEARS';
                 await pool.query('UPDATE matches SET status = $1, winning_faction = $2 WHERE id = $3', ['completed', winningFaction, matchId]);
                 const leaderboardQuery = `
-                    SELECT u.username, mp.tap_count
+                    SELECT u.username, mp.tap_count, u.id AS user_id
                     FROM match_players mp
                     JOIN users u ON mp.user_id = u.id
                     WHERE mp.match_id = $1
@@ -217,6 +244,18 @@ const createMatch = async (players, realPlayersInQueue) => {
                 `;
                 const leaderboardResult = await pool.query(leaderboardQuery, [matchId]);
                 const leaderboard = leaderboardResult.rows;
+                // Analyze for bots
+                leaderboard.forEach(player => {
+                    const key = `${player.user_id}-${matchId}`;
+                    if (tapTimestamps.has(key)) {
+                        const isBot = analyzeTaps(tapTimestamps.get(key));
+                        if (isBot) {
+                            console.log(`Flagged potential bot: user ${player.user_id} in match ${matchId}`);
+                            // TODO: Add flagging logic, e.g., update DB or ban
+                        }
+                        tapTimestamps.delete(key);
+                    }
+                });
                 const playerIds = await pool.query('SELECT user_id FROM match_players WHERE match_id = $1', [matchId]);
                 playerIds.rows.forEach(({ user_id }) => activeMatchStatus.delete(user_id));
                 console.log(`Cleared activeMatchStatus for match ${matchId}`);
