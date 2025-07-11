@@ -9,6 +9,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const arenaContent = document.getElementById('arenaContent');
     const candleCanvas = document.getElementById('candleChart');
     const candleCtx = candleCanvas.getContext('2d');
+    const MAX_PRICE_SWING = 15.00; // Added to match server
 
     let startPrice = 0;
     let currentPrice = 0;
