@@ -37,6 +37,7 @@ input {
     width: 100%; 
     padding: 12px; 
     margin-bottom: 1rem; 
+    border: 2px solid #FFFFFF; 
     background-color: #000000; 
     color: #FFFFFF; 
     box-sizing: border-box;
@@ -49,6 +50,7 @@ input::placeholder {
 button { 
     width: 100%; 
     padding: 12px; 
+    border: 2px solid #00FF00; 
     background-color: #00FF00; 
     color: #000000; 
     font-family: 'Press Start 2P', cursive;
@@ -79,6 +81,7 @@ a:hover { text-decoration: underline; }
     display: flex;
     justify-content: space-between;
     align-items: center;
+    border-bottom: 2px solid #00FF00;
     padding-bottom: 1rem;
     margin-bottom: 2rem;
 }
@@ -92,6 +95,7 @@ a:hover { text-decoration: underline; }
 }
 .logout-btn {
     background: none;
+    border: 2px solid #FF0000;
     color: #FF0000;
     padding: 8px 12px;
     font-size: 0.7em;
@@ -108,6 +112,7 @@ a:hover { text-decoration: underline; }
     margin-top: 2rem;
 }
 .game-tile {
+    border: 2px solid #FFFFFF;
     padding: 1.5rem;
     flex-basis: 48%;
     text-align: center;
@@ -132,6 +137,7 @@ a:hover { text-decoration: underline; }
 .game-tile button:disabled {
     background-color: #000000;
     color: #FFFFFF;
+    border-color: #FFFFFF;
     cursor: not-allowed;
 }
 
@@ -144,14 +150,7 @@ a:hover { text-decoration: underline; }
     max-width: 700px;
     background-color: #000000;
     padding: 2rem;
-    cursor: pointer;
-    -webkit-user-select: none;
-    -ms-user-select: none;
-    user-select: none;
-}
-#arenaContent:active {
-    background-color: #FFFFFF;
-    color: #000000;
+    border: 2px solid #FFFFFF;
 }
 #factionIndicator {
     font-family: 'Press Start 2P', cursive;
@@ -174,8 +173,30 @@ a:hover { text-decoration: underline; }
     text-shadow: 2px 2px #000000;
     margin-bottom: 1rem;
 }
+#tapArea {
+    position: relative;
+    width: 100%;
+    height: 100px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border: 2px solid #00FF00;
+    background-color: #000000;
+    cursor: pointer;
+    font-family: 'Press Start 2P', cursive;
+    color: #00FF00;
+    font-size: 0.8em;
+    -webkit-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+}
+#tapArea:active {
+    background-color: #FFFFFF;
+    color: #000000;
+}
 #candleChart {
     background-color: #000000;
+    border: 2px solid #FFFFFF;
     width: 100%;
     max-width: 600px;
     height: 300px;
@@ -224,6 +245,7 @@ a:hover { text-decoration: underline; }
 .leaderboard-entry {
     margin: 0.5rem 0;
     padding: 0.5rem;
+    border: 2px solid #FFFFFF;
     background-color: #000000;
 }
 #lobbyReturnButton {
@@ -231,6 +253,7 @@ a:hover { text-decoration: underline; }
     padding: 10px 20px;
     background-color: #000000;
     color: #00FF00;
+    border: 2px solid #00FF00;
     font-family: 'Press Start 2P', cursive;
     cursor: pointer;
 }
@@ -249,6 +272,7 @@ a:hover { text-decoration: underline; }
 .auth-form {
     flex: 1;
     padding: 1rem;
+    border: 2px solid #FFFFFF;
     background-color: #000000;
 }
 .divider {
@@ -271,6 +295,7 @@ a:hover { text-decoration: underline; }
     font-size: 0.7em;
     cursor: pointer;
     padding: 0.3rem 0.5rem;
+    border: 2px solid #00FF00;
     background-color: #000000;
     width: fit-content;
 }
@@ -299,8 +324,8 @@ a:hover { text-decoration: underline; }
         flex-direction: column;
         gap: 1rem;
     }
-    .game-tile {
-        padding: 1rem;
+    #tapArea {
+        height: 80px;
     }
     #scores {
         flex-direction: column;

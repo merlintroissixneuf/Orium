@@ -1,11 +1,12 @@
 document.addEventListener('DOMContentLoaded', () => {
-    const arenaContent = document.getElementById('arenaContent');
+    const tapArea = document.getElementById('tapArea');
     const factionIndicator = document.getElementById('factionIndicator');
     const timerDisplay = document.getElementById('timer');
     const countdownDisplay = document.getElementById('countdown');
     const bullsScoreDisplay = document.querySelector('#bullsScore');
     const bearsScoreDisplay = document.querySelector('#bearsScore');
     const userTapCountDisplay = document.getElementById('userTapCount');
+    const arenaContent = document.getElementById('arenaContent');
     const candleCanvas = document.getElementById('candleChart');
     const candleCtx = candleCanvas.getContext('2d');
     const MAX_PRICE_SWING = 15.00;
@@ -14,26 +15,17 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentPrice = 0;
     let canTap = false;
     let userTapCount = 0;
-    let showTapIndicator = false;
-    let lastRedirect = 0; // Throttle redirects
-    let animationFrameId = null; // Track animation frame
 
     const urlParams = new URLSearchParams(window.location.search);
     const matchId = urlParams.get('matchId');
     const token = localStorage.getItem('authToken');
 
-    // Prevent rapid redirect loops
-    const now = Date.now();
     if (!matchId || !token) {
-        if (now - lastRedirect > 1000) { // Throttle to once per second
-            lastRedirect = now;
-            console.log('Missing matchId or authToken, redirecting to lobby');
-            window.location.href = '/';
-        }
+        window.location.href = '/';
         return;
     }
 
-    const socket = io({ auth: { token }, reconnection: true, reconnectionAttempts: 5, reconnectionDelay: 1000, reconnectionDelayMax: 5000 });
+    const socket = io({ auth: { token }, reconnection: true, reconnectionAttempts: Infinity, reconnectionDelay: 1000, reconnectionDelayMax: 5000 });
 
     const handleTap = () => {
         if (canTap) {
@@ -43,31 +35,21 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
     
-    arenaContent.addEventListener('click', handleTap);
-    arenaContent.addEventListener('touchstart', handleTap);
+    tapArea.addEventListener('click', handleTap);
+    tapArea.addEventListener('touchstart', handleTap);
     document.addEventListener('keydown', (e) => {
         if (canTap && (e.key === ' ' || e.key === 'Enter')) {
             handleTap();
         }
     });
 
-    socket.on('connect', () => {
-        console.log('Socket connected, joining match:', matchId);
-        socket.emit('joinMatch', { matchId });
-    });
+    socket.on('connect', () => socket.emit('joinMatch', { matchId }) );
 
     socket.on('matchJoined', (data) => {
-        console.log('Match joined:', data);
         factionIndicator.textContent = `FACTION: ${data.faction}`;
         startPrice = parseFloat(data.start_price);
         currentPrice = startPrice;
-        showTapIndicator = true;
-        setTimeout(() => { 
-            showTapIndicator = false;
-            if (animationFrameId) cancelAnimationFrame(animationFrameId); // Stop animation
-        }, 3000); // Show tap indicator for 3 seconds
         drawCandle();
-        if (showTapIndicator) requestAnimationFrame(animateTapIndicator); // Start animation
         startCountdown();
     });
     
@@ -93,12 +75,10 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     socket.on('matchEnd', (data) => {
-        console.log('Match ended:', data);
-        arenaContent.removeEventListener('click', handleTap);
-        arenaContent.removeEventListener('touchstart', handleTap);
+        tapArea.removeEventListener('click', handleTap);
+        tapArea.removeEventListener('touchstart', handleTap);
         document.removeEventListener('keydown', handleTap);
         canTap = false;
-        if (animationFrameId) cancelAnimationFrame(animationFrameId); // Stop animation
         const leaderboardHTML = data.leaderboard.map(player => 
             `<div class="leaderboard-entry">${player.username}: ${player.tap_count} taps</div>`
         ).join('');
@@ -118,28 +98,13 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    socket.on('connect_error', (err) => {
-        console.error('Socket connection error:', err);
-        if (now - lastRedirect > 1000) {
-            lastRedirect = now;
-            window.location.href = '/';
-        }
-    });
-
-    socket.on('error', (data) => {
-        console.error('Socket error:', data.message);
-        alert('An error occurred: ' + data.message);
-    });
-
+    socket.on('connect_error', (err) => { window.location.href = '/'; });
+    socket.on('error', (data) => { alert('An error occurred: ' + data.message); });
     socket.on('disconnect', () => {
-        console.log('Socket disconnected');
         canTap = false;
-        if (animationFrameId) cancelAnimationFrame(animationFrameId); // Stop animation
         alert('Disconnected. Reconnecting...');
     });
-
     socket.on('reconnect', () => {
-        console.log('Socket reconnected');
         canTap = true;
         socket.emit('joinMatch', { matchId });
     });
@@ -159,7 +124,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const midY = height / 2;
         const scale = height / (2 * MAX_PRICE_SWING);
         const bodyHeight = Math.abs(currentPrice - startPrice) * scale;
-        const wickHeight = 8; // Thinner wick for sobriety
+        const wickHeight = 10;
 
         // Draw price markers
         candleCtx.fillStyle = '#FFFFFF';
@@ -173,7 +138,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const isBullish = currentPrice > startPrice;
         candleCtx.fillStyle = isBullish ? '#00FF00' : '#FF0000';
         candleCtx.strokeStyle = '#FFFFFF';
-        candleCtx.lineWidth = 2; // Thinner wick for neatness
+        candleCtx.lineWidth = 4;
 
         // Draw wick
         const wickTop = midY - (Math.max(currentPrice, startPrice) * scale) - wickHeight / 2;
@@ -183,24 +148,12 @@ document.addEventListener('DOMContentLoaded', () => {
         candleCtx.lineTo(width / 2, wickBottom);
         candleCtx.stroke();
 
-        // Draw body (smaller, neater block)
+        // Draw body (pixelated block)
         const bodyTop = midY - Math.max(currentPrice, startPrice) * scale;
-        const bodyWidth = width / 8; // Reduced width for sobriety
+        const bodyWidth = width / 4;
         candleCtx.fillRect(width / 2 - bodyWidth / 2, bodyTop, bodyWidth, bodyHeight);
-    }
 
-    function animateTapIndicator() {
-        if (!showTapIndicator) {
-            if (animationFrameId) cancelAnimationFrame(animationFrameId);
-            return;
-        }
-        drawCandle();
-        const now = Date.now();
-        const opacity = 0.5 + 0.5 * Math.sin(now / 200); // Subtle pulsing effect
-        candleCtx.fillStyle = `rgba(255, 255, 255, ${opacity})`; // White with pulsing opacity
-        candleCtx.font = '12px "Press Start 2P"';
-        candleCtx.textAlign = 'center';
-        candleCtx.fillText('Tap Here!', candleCanvas.width / 2, candleCanvas.height - 20);
-        animationFrameId = requestAnimationFrame(animateTapIndicator); // Continue animation
+        // Draw border around body
+        candleCtx.strokeRect(width / 2 - bodyWidth / 2, bodyTop, bodyWidth, bodyHeight);
     }
 });
