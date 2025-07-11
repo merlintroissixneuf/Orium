@@ -1,19 +1,18 @@
 document.addEventListener('DOMContentLoaded', () => {
     const tapArea = document.getElementById('tapArea');
     const factionIndicator = document.getElementById('factionIndicator');
-    const priceValue = document.getElementById('priceValue');
     const timerDisplay = document.getElementById('timer');
+    const countdownDisplay = document.getElementById('countdown');
     const bullsScoreDisplay = document.querySelector('#bullsScore');
     const bearsScoreDisplay = document.querySelector('#bearsScore');
     const userTapCountDisplay = document.getElementById('userTapCount');
-    const bullsFill = document.getElementById('bullsFill');
-    const bearsFill = document.getElementById('bearsFill');
     const arenaContent = document.getElementById('arenaContent');
-    const bullsText = document.getElementById('bullsText');
-    const bearsText = document.getElementById('bearsText');
+    const candleCanvas = document.getElementById('candleChart');
+    const candleCtx = candleCanvas.getContext('2d');
 
     let startPrice = 0;
-    let canTap = true;
+    let currentPrice = 0;
+    let canTap = false;
     let userTapCount = 0;
 
     const urlParams = new URLSearchParams(window.location.search);
@@ -36,40 +35,23 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     
     tapArea.addEventListener('click', handleTap);
+    tapArea.addEventListener('touchstart', handleTap);
 
     socket.on('connect', () => socket.emit('joinMatch', { matchId }) );
 
     socket.on('matchJoined', (data) => {
         factionIndicator.textContent = `FACTION: ${data.faction}`;
         startPrice = parseFloat(data.start_price);
+        currentPrice = startPrice;
+        drawCandle();
+        startCountdown();
     });
     
     socket.on('gameStateUpdate', (data) => {
-        priceValue.textContent = Number(data.newPrice).toFixed(2);
+        currentPrice = data.newPrice;
+        drawCandle();
         bullsScoreDisplay.textContent = `BULLS: ${data.bullTaps || 0}`;
         bearsScoreDisplay.textContent = `BEARS: ${data.bearTaps || 0}`;
-
-        const priceChange = data.newPrice - startPrice;
-        const maxPriceSwing = 15;
-        const fillPercentage = (priceChange / maxPriceSwing) * 50;
-        const clampedFill = Math.max(-50, Math.min(50, fillPercentage));
-
-        bullsFill.style.height = `${50 + clampedFill}%`;
-        bearsFill.style.height = `${50 - clampedFill}%`;
-
-        const bullTaps = data.bullTaps || 0;
-        const bearTaps = data.bearTaps || 0;
-        const maxTaps = Math.max(bullTaps, bearTaps, 1);
-        const minFontSize = 0.5;
-        const maxFontSize = 2.0;
-        const bullFontSize = bullTaps > bearTaps 
-            ? minFontSize + (maxFontSize - minFontSize) * (bullTaps / maxTaps)
-            : minFontSize + (maxFontSize - minFontSize) * (bearTaps > 0 ? bullTaps / bearTaps : 0);
-        const bearFontSize = bearTaps > bullTaps 
-            ? minFontSize + (maxFontSize - minFontSize) * (bearTaps / maxTaps)
-            : minFontSize + (maxFontSize - minFontSize) * (bullTaps > 0 ? bearTaps / bullTaps : 0);
-        bullsText.style.fontSize = `${bullFontSize}em`;
-        bearsText.style.fontSize = `${bearFontSize}em`;
     });
 
     socket.on('timeUpdate', (data) => {
@@ -80,9 +62,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     socket.on('matchEnd', (data) => {
         tapArea.removeEventListener('click', handleTap);
+        tapArea.removeEventListener('touchstart', handleTap);
         canTap = false;
-        bullsText.style.display = 'none';
-        bearsText.style.display = 'none';
         const leaderboardHTML = data.leaderboard.map(player => 
             `<div class="leaderboard-entry">${player.username}: ${player.tap_count} taps</div>`
         ).join('');
@@ -112,4 +93,46 @@ document.addEventListener('DOMContentLoaded', () => {
         canTap = true;
         socket.emit('joinMatch', { matchId });
     });
+
+    function startCountdown() {
+        let countdown = 5;
+        countdownDisplay.textContent = `Starting in ${countdown}`;
+        const countdownInterval = setInterval(() => {
+            countdown--;
+            if (countdown > 0) {
+                countdownDisplay.textContent = `Starting in ${countdown}`;
+            } else {
+                countdownDisplay.textContent = '';
+                canTap = true;
+                clearInterval(countdownInterval);
+            }
+        }, 1000);
+    }
+
+    function drawCandle() {
+        const width = candleCanvas.width;
+        const height = candleCanvas.height;
+        candleCtx.clearRect(0, 0, width, height);
+
+        const midY = height / 2;
+        const scale = height / (2 * MAX_PRICE_SWING);
+        const bodyHeight = Math.abs(currentPrice - startPrice) * scale;
+        const wickHeight = 10; // Fixed wick size
+
+        candleCtx.lineWidth = 2;
+        candleCtx.strokeStyle = currentPrice > startPrice ? '#00FF00' : '#FF0000';
+        candleCtx.fillStyle = currentPrice > startPrice ? '#00FF00' : '#FF0000';
+
+        // Draw wick
+        const wickTop = midY - (Math.max(currentPrice, startPrice) * scale) - wickHeight / 2;
+        const wickBottom = midY - (Math.min(currentPrice, startPrice) * scale) + wickHeight / 2 + bodyHeight;
+        candleCtx.beginPath();
+        candleCtx.moveTo(width / 2, wickTop);
+        candleCtx.lineTo(width / 2, wickBottom + bodyHeight);
+        candleCtx.stroke();
+
+        // Draw body
+        const bodyTop = midY - Math.max(currentPrice, startPrice) * scale;
+        candleCtx.fillRect(width / 4, bodyTop, width / 2, bodyHeight);
+    }
 });

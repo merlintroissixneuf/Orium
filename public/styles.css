@@ -1,342 +1,97 @@
-body { 
-    background-color: #000000; 
-    color: #FFFFFF; 
-    font-family: 'Press Start 2P', cursive; 
-    display: flex; 
-    justify-content: center; 
-    align-items: center; 
-    min-height: 100vh; 
+body {
     margin: 0;
-    padding: 1rem;
-    font-size: 0.8em;
-    box-sizing: border-box;
-}
-.container { 
-    background-color: #000000; 
-    padding: 2rem; 
-    width: 100%; 
-    max-width: 700px;
-}
-h1, h2 { 
-    text-align: center; 
-    color: #00FF00; 
-    font-size: 1.5em;
-    margin-bottom: 2rem;
-    text-shadow: 2px 2px #000;
-}
-h3 { 
-    color: #00FF00; 
-    font-size: 1.2em;
-    margin-bottom: 1rem;
-    text-shadow: 1px 1px #000;
-}
-p {
-    line-height: 1.5;
-}
-input { 
-    width: 100%; 
-    padding: 12px; 
-    margin-bottom: 1rem; 
-    border: 1px solid #FFFFFF; 
-    background-color: #000000; 
-    color: #FFFFFF; 
-    box-sizing: border-box;
-    font-family: 'Press Start 2P', cursive;
-}
-input::placeholder {
-    color: #cccccc;
-    opacity: 0.6;
-}
-button { 
-    width: 100%; 
-    padding: 12px; 
-    border: 1px solid #00FF00; 
-    background-color: #00FF00; 
-    color: #000000; 
-    font-family: 'Press Start 2P', cursive;
-    font-weight: bold; 
-    cursor: pointer; 
-    text-transform: uppercase;
-    margin-top: 1rem;
-}
-button:hover {
+    padding: 0;
     background-color: #000000;
-    color: #00FF00;
-}
-#message { 
-    margin-top: 1rem; 
-    text-align: center; 
-    font-weight: bold; 
-    line-height: 1.5;
-}
-.toggle-link { text-align: center; margin-top: 1rem; font-size: 0.7em; }
-a { color: #00FF00; cursor: pointer; text-decoration: none; }
-a:hover { text-decoration: underline; }
-.hidden { display: none; }
-.success { color: #00FF00; }
-.error { color: #FF0000; }
-
-/* --- Lobby Styles --- */
-.header {
+    color: #FFFFFF;
+    font-family: Arial, sans-serif;
     display: flex;
-    justify-content: space-between;
+    justify-content: center;
     align-items: center;
-    border-bottom: 2px solid #00FF00;
-    padding-bottom: 1rem;
-    margin-bottom: 2rem;
+    height: 100vh;
+    overflow: hidden;
 }
-.user-info .username {
-    font-size: 1.2em;
-}
-.user-info .wallet {
-    font-size: 0.8em;
-    opacity: 0.8;
-    margin-top: 0.5rem;
-}
-.logout-btn {
-    background: none;
-    border: 1px solid #FF0000;
-    color: #FF0000;
-    padding: 8px 12px;
-    font-size: 0.7em;
-    width: auto;
-}
-.logout-btn:hover {
-    background: #FF0000;
-    color: #000000;
-}
-.game-modes {
-    display: flex;
-    justify-content: space-between;
-    gap: 1.5rem;
-    margin-top: 2rem;
-}
-.game-tile {
-    border: 2px solid #FFFFFF;
-    padding: 1.5rem;
-    flex-basis: 48%;
-    text-align: center;
+
+#arenaContent {
     display: flex;
     flex-direction: column;
-    justify-content: space-between;
-}
-.game-tile h3 {
-    color: #00FF00;
-    margin-top: 0;
-    font-size: 1em;
-}
-.game-tile p {
-    font-size: 0.7em;
-    margin-bottom: 2rem;
-    opacity: 0.8;
-    flex-grow: 1;
-}
-.game-tile button {
-    font-size: 0.8em;
-}
-.game-tile button:disabled {
-    background-color: #333;
-    color: #888;
-    border-color: #888;
-    cursor: not-allowed;
-}
-/* --- Arena Styles --- */
-.arena-container {
-    position: relative;
-    border-color: #FFFFFF;
-    padding: 0;
-    overflow: hidden;
-    display: flex;
-    justify-content: center;
     align-items: center;
-    cursor: pointer;
-    -webkit-user-select: none;
-    -ms-user-select: none;
-    user-select: none;
-}
-.fill-background {
-    position: absolute;
-    left: 0;
-    right: 0;
     width: 100%;
-    transition: height 0.2s linear;
-    will-change: height;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-}
-#bullsFill {
-    background-color: rgba(0, 255, 0, 0.35);
-    bottom: 0;
-}
-#bearsFill {
-    background-color: rgba(255, 0, 0, 0.35);
-    top: 0;
-}
-.arena-text {
-    font-family: 'Press Start 2P', cursive;
-    color: rgba(255, 255, 255, 0.7);
-    text-align: center;
-    z-index: 1;
-    pointer-events: none;
-    transition: font-size 0.2s linear;
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-}
-#bullsText {
-    text-shadow: 2px 2px #00FF00;
-}
-#bearsText {
-    text-shadow: 2px 2px #FF0000;
-}
-.arena-foreground {
+    height: 100%;
     position: relative;
-    z-index: 2;
-    padding: 2rem;
-    width: 100%;
-    pointer-events: none;
 }
-.arena-header, .chart-container, .controls {
-    text-shadow: 1px 1px 3px #000;
-}
-.arena-header {
-    display: flex;
-    justify-content: space-between;
-    font-size: 1.2em;
-    padding-bottom: 1rem;
-    border-bottom: 2px solid #FFFFFF;
-}
-.chart-container {
-    height: 250px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    margin: 1.5rem 0;
-}
-.price-display {
-    font-size: 3em;
-    color: #FFFFFF;
-    text-shadow: 2px 2px #FF0000, 4px 4px #00FF00;
-}
-.controls { text-align: center; }
-.tap-instruction {
+
+#factionIndicator {
     font-size: 1.5em;
-    opacity: 0.5;
+    margin-bottom: 10px;
 }
-.match-over-screen {
-    text-align: center;
-    pointer-events: auto;
+
+#timer {
+    font-size: 1.5em;
+    margin-bottom: 10px;
 }
-.match-over-screen h2 {
-    font-size: 2.5em;
-    margin-bottom: 2rem;
+
+#countdown {
+    font-size: 2em;
+    color: yellow;
+    margin-bottom: 10px;
 }
-.leaderboard {
-    margin: 1rem 0;
-    font-size: 0.8em;
+
+#tapArea {
+    position: relative;
+    width: 100%;
+    height: 70%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
 }
-.leaderboard-entry {
-    margin: 0.5rem 0;
-    padding: 0.5rem;
-    border: 1px solid #FFFFFF;
-    background-color: rgba(0, 0, 0, 0.5);
+
+#candleChart {
+    background-color: #111111;
+    border: 1px solid #333333;
 }
-.score-panel {
+
+#tapOverlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    cursor: pointer;
+}
+
+#scores {
     display: flex;
     justify-content: space-between;
-    margin-top: 1rem;
-    width: 100%;
+    width: 80%;
+    font-size: 1.2em;
+    margin-top: 10px;
 }
-.score-box {
-    flex: 1;
-    padding: 0.5rem;
-    border: 2px solid;
-    background-color: rgba(0, 0, 0, 0.5);
-    text-align: center;
-    margin: 0 0.5rem;
-}
+
 #bullsScore {
-    border-color: #00FF00;
     color: #00FF00;
 }
+
 #bearsScore {
-    border-color: #FF0000;
     color: #FF0000;
 }
-#userTapCount {
-    border-color: #FFFFFF;
-    color: #FFFFFF;
-}
-/* --- Auth Styles --- */
-.auth-container {
-    display: flex;
-    justify-content: space-between;
-    gap: 2rem;
-    margin-bottom: 1rem;
-}
-.auth-form {
-    flex: 1;
-    padding: 1rem;
-    border: 2px solid #FFFFFF;
-    background-color: rgba(0, 0, 0, 0.5);
-}
-.divider {
-    width: 2px;
-    background-color: #FFFFFF;
-    opacity: 0.5;
-}
-#loading {
+
+.match-over-screen {
     text-align: center;
-    color: #00FF00;
-    font-size: 1em;
-    margin-top: 1rem;
 }
-/* --- Custom Toggle --- */
-.remember-toggle {
-    display: flex;
-    align-items: center;
-    margin: 0.5rem 0 1rem;
-    font-size: 0.7em;
+
+.leaderboard {
+    margin-top: 20px;
+}
+
+.leaderboard-entry {
+    margin: 5px 0;
+}
+
+#lobbyReturnButton {
+    margin-top: 20px;
+    padding: 10px 20px;
+    background-color: #333333;
+    color: #FFFFFF;
+    border: none;
     cursor: pointer;
-    padding: 0.3rem 0.5rem;
-    border: 2px solid #00FF00;
-    background-color: #000000;
-    width: fit-content;
-}
-.remember-toggle .toggle-label {
-    margin-left: 0.5rem;
-}
-.remember-toggle.active {
-    background-color: #FFFFFF;
-    color: #000000;
-}
-/* --- Mobile Responsivity --- */
-@media (max-width: 480px) {
-    .container {
-        padding: 1rem;
-        max-width: 100%;
-    }
-    .auth-container {
-        flex-direction: column;
-        gap: 1rem;
-    }
-    .divider {
-        display: none;
-    }
-    .game-modes {
-        flex-direction: column;
-        gap: 1rem;
-    }
-    .arena-container {
-        padding: 1rem;
-    }
-    .score-panel {
-        flex-direction: column;
-        gap: 1rem;
-    }
-    .score-box {
-        width: 100%;
-    }
 }
