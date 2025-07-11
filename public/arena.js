@@ -9,7 +9,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const arenaContent = document.getElementById('arenaContent');
     const candleCanvas = document.getElementById('candleChart');
     const candleCtx = candleCanvas.getContext('2d');
-    const MAX_PRICE_SWING = 15.00; // Added to match server
+    const MAX_PRICE_SWING = 15.00;
 
     let startPrice = 0;
     let currentPrice = 0;
@@ -37,6 +37,11 @@ document.addEventListener('DOMContentLoaded', () => {
     
     tapArea.addEventListener('click', handleTap);
     tapArea.addEventListener('touchstart', handleTap);
+    document.addEventListener('keydown', (e) => {
+        if (canTap && (e.key === ' ' || e.key === 'Enter')) {
+            handleTap();
+        }
+    });
 
     socket.on('connect', () => socket.emit('joinMatch', { matchId }) );
 
@@ -61,9 +66,18 @@ document.addEventListener('DOMContentLoaded', () => {
         timerDisplay.textContent = `TIME: ${minutes}:${seconds.toString().padStart(2, '0')}`;
     });
 
+    socket.on('countdown', (data) => {
+        countdownDisplay.textContent = `Starting in ${data.countdown}`;
+        if (data.countdown <= 0) {
+            countdownDisplay.textContent = '';
+            canTap = true;
+        }
+    });
+
     socket.on('matchEnd', (data) => {
         tapArea.removeEventListener('click', handleTap);
         tapArea.removeEventListener('touchstart', handleTap);
+        document.removeEventListener('keydown', handleTap);
         canTap = false;
         const leaderboardHTML = data.leaderboard.map(player => 
             `<div class="leaderboard-entry">${player.username}: ${player.tap_count} taps</div>`
@@ -96,18 +110,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     function startCountdown() {
-        let countdown = 5;
-        countdownDisplay.textContent = `Starting in ${countdown}`;
-        const countdownInterval = setInterval(() => {
-            countdown--;
-            if (countdown > 0) {
-                countdownDisplay.textContent = `Starting in ${countdown}`;
-            } else {
-                countdownDisplay.textContent = '';
-                canTap = true;
-                clearInterval(countdownInterval);
-            }
-        }, 1000);
+        // Handled by server-side countdown event
     }
 
     function drawCandle() {
@@ -115,25 +118,42 @@ document.addEventListener('DOMContentLoaded', () => {
         const height = candleCanvas.height;
         candleCtx.clearRect(0, 0, width, height);
 
+        // Set pixelated rendering
+        candleCtx.imageSmoothingEnabled = false;
+
         const midY = height / 2;
         const scale = height / (2 * MAX_PRICE_SWING);
         const bodyHeight = Math.abs(currentPrice - startPrice) * scale;
-        const wickHeight = 10; // Fixed wick size
+        const wickHeight = 10;
 
-        candleCtx.lineWidth = 2;
-        candleCtx.strokeStyle = currentPrice > startPrice ? '#00FF00' : '#FF0000';
-        candleCtx.fillStyle = currentPrice > startPrice ? '#00FF00' : '#FF0000';
+        // Draw price markers
+        candleCtx.fillStyle = '#FFFFFF';
+        candleCtx.font = '8px "Press Start 2P"';
+        for (let price = -MAX_PRICE_SWING; price <= MAX_PRICE_SWING; price += 5) {
+            const y = midY - price * scale;
+            candleCtx.fillText(`${price.toFixed(0)}`, 10, y + 3);
+        }
+
+        // Set candle colors
+        const isBullish = currentPrice > startPrice;
+        candleCtx.fillStyle = isBullish ? '#00FF00' : '#FF0000';
+        candleCtx.strokeStyle = '#FFFFFF';
+        candleCtx.lineWidth = 4;
 
         // Draw wick
         const wickTop = midY - (Math.max(currentPrice, startPrice) * scale) - wickHeight / 2;
         const wickBottom = midY - (Math.min(currentPrice, startPrice) * scale) + wickHeight / 2 + bodyHeight;
         candleCtx.beginPath();
         candleCtx.moveTo(width / 2, wickTop);
-        candleCtx.lineTo(width / 2, wickBottom + bodyHeight);
+        candleCtx.lineTo(width / 2, wickBottom);
         candleCtx.stroke();
 
-        // Draw body
+        // Draw body (pixelated block)
         const bodyTop = midY - Math.max(currentPrice, startPrice) * scale;
-        candleCtx.fillRect(width / 4, bodyTop, width / 2, bodyHeight);
+        const bodyWidth = width / 4;
+        candleCtx.fillRect(width / 2 - bodyWidth / 2, bodyTop, bodyWidth, bodyHeight);
+
+        // Draw border around body
+        candleCtx.strokeRect(width / 2 - bodyWidth / 2, bodyTop, bodyWidth, bodyHeight);
     }
 });

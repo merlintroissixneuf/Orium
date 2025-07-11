@@ -1,28 +1,29 @@
-<!-- arena.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-    <title>Orium Arena</title>
-    <link rel="stylesheet" href="styles.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meme Stock Mayhem - Orium.fun</title>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
-    <div id="arenaContent">
-        <div id="factionIndicator">FACTION: ---</div>
-        <div id="timer">TIME: 1:00</div>
-        <div id="countdown"></div>
-        <div id="tapArea">
-            <canvas id="candleChart" width="300" height="400"></canvas>
-            <div id="tapOverlay"></div>
-        </div>
-        <div id="scores">
-            <span id="bullsScore">BULLS: 0</span>
-            <span id="userTapCount">Your Taps: 0</span>
-            <span id="bearsScore">BEARS: 0</span>
+    <div class="container">
+        <div id="arenaContent">
+            <h2>Meme Stock Mayhem</h2>
+            <div id="factionIndicator">FACTION: Unknown</div>
+            <div id="timer">TIME: 1:00</div>
+            <div id="countdown"></div>
+            <div id="scores">
+                <div id="bullsScore">BULLS: 0</div>
+                <div id="bearsScore">BEARS: 0</div>
+                <div id="userTapCount">Your Taps: 0</div>
+            </div>
+            <canvas id="candleChart" width="600" height="300"></canvas>
+            <div id="tapArea">Tap Here!</div>
         </div>
     </div>
     <script src="/socket.io/socket.io.js"></script>
-    <script src="arena.js"></script>
+    <script src="/arena.js"></script>
 </body>
 </html>
