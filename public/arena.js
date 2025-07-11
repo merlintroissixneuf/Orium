@@ -15,25 +15,18 @@ document.addEventListener('DOMContentLoaded', () => {
     let canTap = false;
     let userTapCount = 0;
     let showTapIndicator = false;
-    let lastRedirect = 0; // Throttle redirects
-    let animationFrameId = null; // Track animation frame
 
     const urlParams = new URLSearchParams(window.location.search);
     const matchId = urlParams.get('matchId');
     const token = localStorage.getItem('authToken');
 
-    // Prevent rapid redirect loops
-    const now = Date.now();
     if (!matchId || !token) {
-        if (now - lastRedirect > 1000) { // Throttle to once per second
-            lastRedirect = now;
-            console.log('Missing matchId or authToken, redirecting to lobby');
-            window.location.href = '/';
-        }
+        console.log('Missing matchId or authToken, redirecting to lobby');
+        window.location.href = '/';
         return;
     }
 
-    const socket = io({ auth: { token }, reconnection: true, reconnectionAttempts: 5, reconnectionDelay: 1000, reconnectionDelayMax: 5000 });
+    const socket = io({ auth: { token }, reconnection: true, reconnectionAttempts: Infinity, reconnectionDelay: 1000, reconnectionDelayMax: 5000 });
 
     const handleTap = () => {
         if (canTap) {
@@ -62,12 +55,8 @@ document.addEventListener('DOMContentLoaded', () => {
         startPrice = parseFloat(data.start_price);
         currentPrice = startPrice;
         showTapIndicator = true;
-        setTimeout(() => { 
-            showTapIndicator = false;
-            if (animationFrameId) cancelAnimationFrame(animationFrameId); // Stop animation
-        }, 3000); // Show tap indicator for 3 seconds
+        setTimeout(() => { showTapIndicator = false; }, 3000); // Show tap indicator for 3 seconds
         drawCandle();
-        if (showTapIndicator) requestAnimationFrame(animateTapIndicator); // Start animation
         startCountdown();
     });
     
@@ -98,7 +87,6 @@ document.addEventListener('DOMContentLoaded', () => {
         arenaContent.removeEventListener('touchstart', handleTap);
         document.removeEventListener('keydown', handleTap);
         canTap = false;
-        if (animationFrameId) cancelAnimationFrame(animationFrameId); // Stop animation
         const leaderboardHTML = data.leaderboard.map(player => 
             `<div class="leaderboard-entry">${player.username}: ${player.tap_count} taps</div>`
         ).join('');
@@ -120,10 +108,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     socket.on('connect_error', (err) => {
         console.error('Socket connection error:', err);
-        if (now - lastRedirect > 1000) {
-            lastRedirect = now;
-            window.location.href = '/';
-        }
+        window.location.href = '/';
     });
 
     socket.on('error', (data) => {
@@ -134,7 +119,6 @@ document.addEventListener('DOMContentLoaded', () => {
     socket.on('disconnect', () => {
         console.log('Socket disconnected');
         canTap = false;
-        if (animationFrameId) cancelAnimationFrame(animationFrameId); // Stop animation
         alert('Disconnected. Reconnecting...');
     });
 
@@ -187,20 +171,16 @@ document.addEventListener('DOMContentLoaded', () => {
         const bodyTop = midY - Math.max(currentPrice, startPrice) * scale;
         const bodyWidth = width / 8; // Reduced width for sobriety
         candleCtx.fillRect(width / 2 - bodyWidth / 2, bodyTop, bodyWidth, bodyHeight);
-    }
 
-    function animateTapIndicator() {
-        if (!showTapIndicator) {
-            if (animationFrameId) cancelAnimationFrame(animationFrameId);
-            return;
+        // Tap indicator animation
+        if (showTapIndicator) {
+            const now = Date.now();
+            const opacity = 0.5 + 0.5 * Math.sin(now / 200); // Subtle pulsing effect
+            candleCtx.fillStyle = `rgba(255, 255, 255, ${opacity})`; // White with pulsing opacity
+            candleCtx.font = '12px "Press Start 2P"';
+            candleCtx.textAlign = 'center';
+            candleCtx.fillText('Tap Here!', width / 2, height - 20);
+            requestAnimationFrame(drawCandle); // Keep animating while indicator is active
         }
-        drawCandle();
-        const now = Date.now();
-        const opacity = 0.5 + 0.5 * Math.sin(now / 200); // Subtle pulsing effect
-        candleCtx.fillStyle = `rgba(255, 255, 255, ${opacity})`; // White with pulsing opacity
-        candleCtx.font = '12px "Press Start 2P"';
-        candleCtx.textAlign = 'center';
-        candleCtx.fillText('Tap Here!', candleCanvas.width / 2, candleCanvas.height - 20);
-        animationFrameId = requestAnimationFrame(animateTapIndicator); // Continue animation
     }
 });
