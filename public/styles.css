@@ -149,10 +149,6 @@ a:hover { text-decoration: underline; }
     -ms-user-select: none;
     user-select: none;
 }
-#arenaContent:active {
-    background-color: #FFFFFF;
-    color: #000000;
-}
 #factionIndicator {
     font-family: 'Press Start 2P', cursive;
     font-size: 1.2em;

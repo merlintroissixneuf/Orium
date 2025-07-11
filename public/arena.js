@@ -14,6 +14,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentPrice = 0;
     let canTap = false;
     let userTapCount = 0;
+    let showTapIndicator = false;
 
     const urlParams = new URLSearchParams(window.location.search);
     const matchId = urlParams.get('matchId');
@@ -53,6 +54,8 @@ document.addEventListener('DOMContentLoaded', () => {
         factionIndicator.textContent = `FACTION: ${data.faction}`;
         startPrice = parseFloat(data.start_price);
         currentPrice = startPrice;
+        showTapIndicator = true;
+        setTimeout(() => { showTapIndicator = false; }, 3000); // Show tap indicator for 3 seconds
         drawCandle();
         startCountdown();
     });
@@ -140,7 +143,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const midY = height / 2;
         const scale = height / (2 * MAX_PRICE_SWING);
         const bodyHeight = Math.abs(currentPrice - startPrice) * scale;
-        const wickHeight = 10;
+        const wickHeight = 8; // Thinner wick for sobriety
 
         // Draw price markers
         candleCtx.fillStyle = '#FFFFFF';
@@ -154,7 +157,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const isBullish = currentPrice > startPrice;
         candleCtx.fillStyle = isBullish ? '#00FF00' : '#FF0000';
         candleCtx.strokeStyle = '#FFFFFF';
-        candleCtx.lineWidth = 4;
+        candleCtx.lineWidth = 2; // Thinner wick for neatness
 
         // Draw wick
         const wickTop = midY - (Math.max(currentPrice, startPrice) * scale) - wickHeight / 2;
@@ -164,9 +167,20 @@ document.addEventListener('DOMContentLoaded', () => {
         candleCtx.lineTo(width / 2, wickBottom);
         candleCtx.stroke();
 
-        // Draw body (pixelated block)
+        // Draw body (smaller, neater block)
         const bodyTop = midY - Math.max(currentPrice, startPrice) * scale;
-        const bodyWidth = width / 4;
+        const bodyWidth = width / 8; // Reduced width for sobriety
         candleCtx.fillRect(width / 2 - bodyWidth / 2, bodyTop, bodyWidth, bodyHeight);
+
+        // Tap indicator animation
+        if (showTapIndicator) {
+            const now = Date.now();
+            const opacity = 0.5 + 0.5 * Math.sin(now / 200); // Subtle pulsing effect
+            candleCtx.fillStyle = `rgba(255, 255, 255, ${opacity})`; // White with pulsing opacity
+            candleCtx.font = '12px "Press Start 2P"';
+            candleCtx.textAlign = 'center';
+            candleCtx.fillText('Tap Here!', width / 2, height - 20);
+            requestAnimationFrame(drawCandle); // Keep animating while indicator is active
+        }
     }
 });
