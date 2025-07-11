@@ -20,6 +20,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const token = localStorage.getItem('authToken');
 
     if (!matchId || !token) {
+        console.log('Missing matchId or authToken, redirecting to lobby');
         window.location.href = '/';
         return;
     }
@@ -42,9 +43,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    socket.on('connect', () => socket.emit('joinMatch', { matchId }) );
+    socket.on('connect', () => {
+        console.log('Socket connected, joining match:', matchId);
+        socket.emit('joinMatch', { matchId });
+    });
 
     socket.on('matchJoined', (data) => {
+        console.log('Match joined:', data);
         factionIndicator.textContent = `FACTION: ${data.faction}`;
         startPrice = parseFloat(data.start_price);
         currentPrice = startPrice;
@@ -74,6 +79,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     socket.on('matchEnd', (data) => {
+        console.log('Match ended:', data);
         arenaContent.removeEventListener('click', handleTap);
         arenaContent.removeEventListener('touchstart', handleTap);
         document.removeEventListener('keydown', handleTap);
@@ -97,13 +103,24 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    socket.on('connect_error', (err) => { window.location.href = '/'; });
-    socket.on('error', (data) => { alert('An error occurred: ' + data.message); });
+    socket.on('connect_error', (err) => {
+        console.error('Socket connection error:', err);
+        window.location.href = '/';
+    });
+
+    socket.on('error', (data) => {
+        console.error('Socket error:', data.message);
+        alert('An error occurred: ' + data.message);
+    });
+
     socket.on('disconnect', () => {
+        console.log('Socket disconnected');
         canTap = false;
         alert('Disconnected. Reconnecting...');
     });
+
     socket.on('reconnect', () => {
+        console.log('Socket reconnected');
         canTap = true;
         socket.emit('joinMatch', { matchId });
     });
