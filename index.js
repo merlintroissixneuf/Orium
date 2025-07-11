@@ -41,17 +41,16 @@ const matchmakingQueue = [];
 const activeMatchStatus = new Map();
 const activeMatchTimers = new Map();
 const botIntervals = new Map();
-const tapTimestamps = new Map(); // Key: `${userId}-${matchId}`, Value: array of timestamps
+const tapTimestamps = new Map();
 const MATCH_SIZE = 10;
 const MATCHMAKING_TIMEOUT = 10000;
 const MATCH_DURATION_SECONDS = 60;
 const MAX_PRICE_SWING = 15.00;
-const MIN_TAP_INTERVAL = 50; // ms
-const VARIANCE_THRESHOLD = 20; // ms std dev
-const BURST_THRESHOLD = 0.1; // 10% bursts <30ms
+const MIN_TAP_INTERVAL = 50;
+const VARIANCE_THRESHOLD = 20;
+const BURST_THRESHOLD = 0.1;
 let matchmakingTimer = null;
 
-// Initialize bot users if they don't exist
 const initializeBots = async () => {
     const client = await pool.connect();
     try {
@@ -154,7 +153,7 @@ const handleTap = async (matchId, userId, faction) => {
 };
 
 const analyzeTaps = (timestamps) => {
-    if (timestamps.length < 10) return false; // Not enough data
+    if (timestamps.length < 10) return false;
     const intervals = [];
     for (let i = 1; i < timestamps.length; i++) {
         intervals.push(timestamps[i] - timestamps[i - 1]);
@@ -169,7 +168,7 @@ const analyzeTaps = (timestamps) => {
 const createMatch = async (players, realPlayersInQueue) => {
     try {
         const startTime = new Date();
-        const endTime = new Date(startTime.getTime() + MATCH_DURATION_SECONDS * 1000);
+        const endTime = new Date(startTime.getTime() + (MATCH_DURATION_SECONDS + 5) * 1000);
         const startPrice = 0.00;
         const matchQuery = `INSERT INTO matches (start_price, current_price, status, start_time, end_time) VALUES ($1, $1, 'active', $2, $3) RETURNING id;`;
         const matchResult = await pool.query(matchQuery, [startPrice, startTime, endTime]);
@@ -209,7 +208,7 @@ const createMatch = async (players, realPlayersInQueue) => {
             const interval = setInterval(() => {
                 console.log(`Bot ${bot.userId} (Faction: ${bot.faction}) is tapping in match ${matchId}.`);
                 handleTap(matchId, bot.userId, bot.faction);
-            }, 200 + Math.random() * 300);
+            }, 500 + Math.random() * 500); // Adjusted for balanced bot tapping
             matchBotIntervals.push(interval);
         });
         if (matchBotIntervals.length > 0) {
@@ -218,6 +217,15 @@ const createMatch = async (players, realPlayersInQueue) => {
         } else {
             console.log(`No bot intervals started for match ${matchId}`);
         }
+
+        let countdown = 5;
+        const countdownTimer = setInterval(() => {
+            io.to(matchId.toString()).emit('countdown', { countdown });
+            countdown--;
+            if (countdown < 0) {
+                clearInterval(countdownTimer);
+            }
+        }, 1000);
 
         let remainingTime = MATCH_DURATION_SECONDS;
         const matchTimer = setInterval(async () => {
@@ -248,14 +256,12 @@ const createMatch = async (players, realPlayersInQueue) => {
                 `;
                 const leaderboardResult = await pool.query(leaderboardQuery, [matchId]);
                 const leaderboard = leaderboardResult.rows;
-                // Analyze for bots
                 leaderboard.forEach(player => {
                     const key = `${player.user_id}-${matchId}`;
                     if (tapTimestamps.has(key)) {
                         const isBot = analyzeTaps(tapTimestamps.get(key));
                         if (isBot) {
                             console.log(`Flagged potential bot: user ${player.user_id} in match ${matchId}`);
-                            // TODO: Add flagging logic, e.g., update DB or ban
                         }
                         tapTimestamps.delete(key);
                     }
@@ -343,7 +349,6 @@ app.post('/api/register', async (req, res) => {
             console.log('Email sent successfully');
         } catch (emailError) {
             console.error('Email sending failed:', emailError);
-            // Proceed without email for now, log for debugging
         }
         res.status(201).json({ message: 'Registration successful! Please check your email (and spam folder) to verify your account.' });
     } catch (error) {
@@ -374,20 +379,17 @@ app.get('/api/verify', async (req, res) => {
             await client.query('ROLLBACK');
             return res.status(400).send('Invalid verification token.');
         }
-        // Check if already verified or used
         if (user.is_verified || user.verification_used) {
             console.log('Token already used or user verified:', { userId: user.id, is_verified: user.is_verified, verification_used: user.verification_used });
             await client.query('ROLLBACK');
             return res.status(400).send('This verification token has already been used.');
         }
-        // Verify token before update
         if (user.verification_token !== token) {
             console.error('Token mismatch in database:', { dbToken: user.verification_token, received: token });
             await client.query('ROLLBACK');
             return res.status(400).send('Token mismatch detected.');
         }
         await client.query('UPDATE users SET is_verified = TRUE, verification_token = NULL, verification_used = NOW() WHERE id = $1', [user.id]);
-        // Confirm update
         const updatedUser = await client.query('SELECT is_verified, verification_token, verification_used FROM users WHERE id = $1', [user.id]);
         console.log('Post-update state:', updatedUser.rows[0]);
         await client.query('COMMIT');
@@ -458,7 +460,6 @@ app.post('/api/reset-password', async (req, res) => {
         const { rows } = await pool.query('SELECT * FROM users WHERE password_reset_token = $1 AND password_reset_expires > NOW() FOR UPDATE', [token]);
         const user = rows[0];
         if (!user) return res.status(400).json({ message: 'Password reset token is invalid or has expired.' });
-        // Check if already reset
         if (user.reset_used) {
             console.log('Reset token already used:', { userId: user.id, reset_used: user.reset_used });
             return res.status(400).json({ message: 'This reset token has already been used.' });
@@ -561,7 +562,6 @@ app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Initialize bots on server startup
 initializeBots().then(() => {
     server.listen(port, () => {
         console.log(`🚀 Server listening on port ${port}`);

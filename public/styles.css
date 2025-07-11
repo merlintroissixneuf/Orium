@@ -1,3 +1,4 @@
+/* styles.css */
 body { 
     background-color: #000000; 
     color: #FFFFFF; 
@@ -135,9 +136,9 @@ a:hover { text-decoration: underline; }
     font-size: 0.8em;
 }
 .game-tile button:disabled {
-    background-color: #333;
-    color: #888;
-    border-color: #888;
+    background-color: #555555;
+    color: #888888;
+    border-color: #888888;
     cursor: not-allowed;
 }
 /* --- Arena Styles --- */
@@ -340,8 +341,7 @@ a:hover { text-decoration: underline; }
         width: 100%;
     }
 }
-
-
+/* --- Candle Styles --- */
 #arenaContent {
     display: flex;
     flex-direction: column;
@@ -350,23 +350,19 @@ a:hover { text-decoration: underline; }
     height: 100%;
     position: relative;
 }
-
 #factionIndicator {
     font-size: 1.5em;
     margin-bottom: 10px;
 }
-
 #timer {
     font-size: 1.5em;
     margin-bottom: 10px;
 }
-
 #countdown {
     font-size: 2em;
-    color: yellow;
+    color: #FFFF00;
     margin-bottom: 10px;
 }
-
 #tapArea {
     position: relative;
     width: 100%;
@@ -375,12 +371,10 @@ a:hover { text-decoration: underline; }
     justify-content: center;
     align-items: center;
 }
-
 #candleChart {
-    background-color: #111111;
-    border: 1px solid #333333;
+    background-color: #000000;
+    border: 2px solid #FFFFFF;
 }
-
 #tapOverlay {
     position: absolute;
     top: 0;
@@ -389,7 +383,6 @@ a:hover { text-decoration: underline; }
     height: 100%;
     cursor: pointer;
 }
-
 #scores {
     display: flex;
     justify-content: space-between;
@@ -397,32 +390,26 @@ a:hover { text-decoration: underline; }
     font-size: 1.2em;
     margin-top: 10px;
 }
-
 #bullsScore {
     color: #00FF00;
 }
-
 #bearsScore {
     color: #FF0000;
 }
-
 .match-over-screen {
     text-align: center;
 }
-
 .leaderboard {
     margin-top: 20px;
 }
-
 .leaderboard-entry {
     margin: 5px 0;
 }
-
 #lobbyReturnButton {
     margin-top: 20px;
     padding: 10px 20px;
-    background-color: #333333;
-    color: #FFFFFF;
-    border: none;
+    background-color: #000000;
+    color: #00FF00;
+    border: 2px solid #00FF00;
     cursor: pointer;
 }
