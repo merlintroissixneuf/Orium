@@ -15,24 +15,18 @@ document.addEventListener('DOMContentLoaded', () => {
     let canTap = false;
     let userTapCount = 0;
     let showTapIndicator = false;
-    let lastRedirect = 0; // Prevent rapid redirects
 
     const urlParams = new URLSearchParams(window.location.search);
     const matchId = urlParams.get('matchId');
     const token = localStorage.getItem('authToken');
 
-    // Prevent rapid redirect loops
-    const now = Date.now();
     if (!matchId || !token) {
-        if (now - lastRedirect > 1000) { // Throttle redirects to once per second
-            lastRedirect = now;
-            console.log('Missing matchId or authToken, redirecting to lobby');
-            window.location.href = '/';
-        }
+        console.log('Missing matchId or authToken, redirecting to lobby');
+        window.location.href = '/';
         return;
     }
 
-    const socket = io({ auth: { token }, reconnection: true, reconnectionAttempts: 5, reconnectionDelay: 1000, reconnectionDelayMax: 5000 });
+    const socket = io({ auth: { token }, reconnection: true, reconnectionAttempts: Infinity, reconnectionDelay: 1000, reconnectionDelayMax: 5000 });
 
     const handleTap = () => {
         if (canTap) {
@@ -114,10 +108,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     socket.on('connect_error', (err) => {
         console.error('Socket connection error:', err);
-        if (now - lastRedirect > 1000) {
-            lastRedirect = now;
-            window.location.href = '/';
-        }
+        window.location.href = '/';
     });
 
     socket.on('error', (data) => {
