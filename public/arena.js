@@ -1,12 +1,11 @@
 document.addEventListener('DOMContentLoaded', () => {
-    const tapArea = document.getElementById('tapArea');
+    const arenaContent = document.getElementById('arenaContent');
     const factionIndicator = document.getElementById('factionIndicator');
     const timerDisplay = document.getElementById('timer');
     const countdownDisplay = document.getElementById('countdown');
     const bullsScoreDisplay = document.querySelector('#bullsScore');
     const bearsScoreDisplay = document.querySelector('#bearsScore');
     const userTapCountDisplay = document.getElementById('userTapCount');
-    const arenaContent = document.getElementById('arenaContent');
     const candleCanvas = document.getElementById('candleChart');
     const candleCtx = candleCanvas.getContext('2d');
     const MAX_PRICE_SWING = 15.00;
@@ -35,8 +34,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
     
-    tapArea.addEventListener('click', handleTap);
-    tapArea.addEventListener('touchstart', handleTap);
+    arenaContent.addEventListener('click', handleTap);
+    arenaContent.addEventListener('touchstart', handleTap);
     document.addEventListener('keydown', (e) => {
         if (canTap && (e.key === ' ' || e.key === 'Enter')) {
             handleTap();
@@ -75,8 +74,8 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     socket.on('matchEnd', (data) => {
-        tapArea.removeEventListener('click', handleTap);
-        tapArea.removeEventListener('touchstart', handleTap);
+        arenaContent.removeEventListener('click', handleTap);
+        arenaContent.removeEventListener('touchstart', handleTap);
         document.removeEventListener('keydown', handleTap);
         canTap = false;
         const leaderboardHTML = data.leaderboard.map(player => 
@@ -152,8 +151,5 @@ document.addEventListener('DOMContentLoaded', () => {
         const bodyTop = midY - Math.max(currentPrice, startPrice) * scale;
         const bodyWidth = width / 4;
         candleCtx.fillRect(width / 2 - bodyWidth / 2, bodyTop, bodyWidth, bodyHeight);
-
-        // Draw border around body
-        candleCtx.strokeRect(width / 2 - bodyWidth / 2, bodyTop, bodyWidth, bodyHeight);
     }
 });
