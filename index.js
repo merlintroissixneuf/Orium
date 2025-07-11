@@ -466,35 +466,20 @@ app.post('/api/matchmaking/join', verifyToken, async (req, res) => {
         matchmakingTimer = null;
         const playersToStart = matchmakingQueue.splice(0, MATCH_SIZE);
         await createMatch(playersToStart, playersToStart);
-    } else {
-        const realPlayersInQueue = [...matchmakingQueue];
-        const spotsToFill = MATCH_SIZE - realPlayersInQueue.length;
-        if (spotsToFill > 0) {
+    } else if (matchmakingQueue.length === 1) {
+        matchmakingTimer = setTimeout(async () => {
+            console.log('Matchmaking timeout reached. Filling with bots.');
+            const realPlayersInQueue = [...matchmakingQueue];
+            const spotsToFill = MATCH_SIZE - realPlayersInQueue.length;
             const botQuery = `SELECT id FROM users WHERE username LIKE 'bot%' LIMIT $1;`;
             const { rows } = await pool.query(botQuery, [spotsToFill]);
             const botPlayers = rows.map(bot => ({ userId: bot.id }));
             console.log(`Fetched ${botPlayers.length} bots for match`);
             const playersToStart = [...realPlayersInQueue, ...botPlayers];
-            if (playersToStart.length >= MATCH_SIZE) {
-                matchmakingQueue.splice(0, realPlayersInQueue.length);
-                await createMatch(playersToStart, realPlayersInQueue);
-            }
-        }
-        if (matchmakingQueue.length > 0 && matchmakingQueue.length < MATCH_SIZE) {
-            matchmakingTimer = setTimeout(async () => {
-                console.log('Matchmaking timeout reached. Filling with remaining bots.');
-                const realPlayersInQueue = [...matchmakingQueue];
-                const spotsToFill = MATCH_SIZE - realPlayersInQueue.length;
-                const botQuery = `SELECT id FROM users WHERE username LIKE 'bot%' LIMIT $1;`;
-                const { rows } = await pool.query(botQuery, [spotsToFill]);
-                const botPlayers = rows.map(bot => ({ userId: bot.id }));
-                console.log(`Fetched ${botPlayers.length} bots for match`);
-                const playersToStart = [...realPlayersInQueue, ...botPlayers];
-                matchmakingQueue.length = 0;
-                await createMatch(playersToStart, realPlayersInQueue);
-                matchmakingTimer = null;
-            }, MATCHMAKING_TIMEOUT);
-        }
+            matchmakingQueue.length = 0;
+            await createMatch(playersToStart, realPlayersInQueue);
+            matchmakingTimer = null;
+        }, MATCHMAKING_TIMEOUT);
     }
     res.json({ message: 'You have joined the queue.' });
 });
