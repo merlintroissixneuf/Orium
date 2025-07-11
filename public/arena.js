@@ -25,21 +25,19 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
     }
 
-    const socket = io({ auth: { token } });
+    const socket = io({ auth: { token }, reconnection: true, reconnectionAttempts: Infinity, reconnectionDelay: 1000, reconnectionDelayMax: 5000 });
 
     const handleTap = () => {
         if (canTap) {
             socket.emit('playerTap', { matchId });
             userTapCount++;
             userTapCountDisplay.textContent = `Your Taps: ${userTapCount}`;
-            canTap = false;
-            setTimeout(() => { canTap = true; }, 100);
         }
     };
     
     tapArea.addEventListener('click', handleTap);
 
-    socket.on('connect', () => socket.emit('joinMatch', { matchId}) );
+    socket.on('connect', () => socket.emit('joinMatch', { matchId }) );
 
     socket.on('matchJoined', (data) => {
         factionIndicator.textContent = `FACTION: ${data.faction}`;
@@ -106,4 +104,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     socket.on('connect_error', (err) => { window.location.href = '/'; });
     socket.on('error', (data) => { alert('An error occurred: ' + data.message); });
+    socket.on('disconnect', () => {
+        canTap = false;
+        alert('Disconnected. Reconnecting...');
+    });
+    socket.on('reconnect', () => {
+        canTap = true;
+        socket.emit('joinMatch', { matchId });
+    });
 });
