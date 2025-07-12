@@ -45,6 +45,7 @@ document.addEventListener('DOMContentLoaded', () => {
             userTapCountDisplay.textContent = `Your Taps: ${userTapCount}`;
             lastTapTime = Date.now();
             oscillation = 2;
+            console.log(`Tap registered: userTapCount=${userTapCount}, currentPrice=${currentPrice}`);
         }
     };
 
@@ -79,6 +80,7 @@ document.addEventListener('DOMContentLoaded', () => {
             showTapIndicator = false;
             if (animationFrameId) cancelAnimationFrame(animationFrameId);
             updatePriceBox();
+            priceBox.style.backgroundImage = 'none';
         }, 3000);
         updatePriceBox();
         if (showTapIndicator) animationFrameId = requestAnimationFrame(animateTapIndicator);
@@ -89,6 +91,7 @@ document.addEventListener('DOMContentLoaded', () => {
         targetPrice = parseFloat(data.newPrice) || 0;
         bullsScoreDisplay.textContent = `BULLS: ${data.bullTaps || 0}`;
         bearsScoreDisplay.textContent = `BEARS: ${data.bearTaps || 0}`;
+        console.log(`Game state update: newPrice=${targetPrice}, bullTaps=${data.bullTaps}, bearTaps=${data.bearTaps}`);
         if (!animationFrameId) animationFrameId = requestAnimationFrame(animatePriceBox);
     });
 
@@ -163,18 +166,20 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function updatePriceBox() {
+        // Map currentPrice (-15 to +15) to gradient percentage (0% to 100%)
         const greenPercentage = 50 + (currentPrice / MAX_PRICE_SWING) * 50; // Green grows from bottom
-        const redPercentage = 100 - greenPercentage; // Red from top
+        const redPercentage = 100 - greenPercentage; // Red grows from top
         priceBox.style.background = `linear-gradient(to bottom, #FF0000 ${redPercentage}%, #00FF00 ${greenPercentage}%)`;
         // Apply vertical oscillation
         const yOffset = oscillation > 0 ? Math.sin(Date.now() / 50) * oscillation : 0;
         priceBox.style.transform = `translateY(${yOffset}px)`;
         oscillation *= 0.9;
         if (oscillation < 0.1) oscillation = 0;
+        console.log(`Price box updated: currentPrice=${currentPrice}, greenPercentage=${greenPercentage}%`);
     }
 
     function animatePriceBox() {
-        const lerpFactor = 0.1;
+        const lerpFactor = 0.2; // Increased for faster response
         currentPrice += (targetPrice - currentPrice) * lerpFactor;
         if (Math.abs(currentPrice - targetPrice) < 0.01) currentPrice = targetPrice;
         updatePriceBox();

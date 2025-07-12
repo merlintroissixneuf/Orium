@@ -233,6 +233,10 @@ a:hover {
 .match-over-screen {
     text-align: center;
     font-family: 'Press Start 2P', cursive;
+    background-color: #000000;
+    padding: 1.5rem;
+    width: 100%;
+    max-width: 700px;
 }
 .match-over-screen h2 {
     font-size: 1.8rem;
@@ -242,17 +246,21 @@ a:hover {
 }
 .match-over-screen h3 {
     font-size: 1.4rem;
+    color: #FFFFFF;
     text-shadow: 2px 2px #000000;
+    margin-bottom: 0.8rem;
 }
 .leaderboard {
     margin: 0.8rem 0;
     font-size: 0.65rem;
     color: #FFFFFF;
+    text-shadow: 1px 1px #000000;
 }
 .leaderboard-entry {
     margin: 0.4rem 0;
     padding: 0.4rem;
     background-color: #000000;
+    text-shadow: 1px 1px #000000;
 }
 #lobbyReturnButton {
     margin-top: 0.8rem;
@@ -350,6 +358,18 @@ a:hover {
     #priceBox {
         height: 200px;
     }
+    .match-over-screen {
+        padding: 0.8rem;
+    }
+    .match-over-screen h2 {
+        font-size: 1.4rem;
+    }
+    .match-over-screen h3 {
+        font-size: 1.2rem;
+    }
+    .leaderboard {
+        font-size: 0.6rem;
+    }
 }
 
 /* --- Larger Screens --- */
@@ -380,6 +400,10 @@ a:hover {
     }
     #scores {
         font-size: 0.9rem;
+    }
+    .match-over-screen {
+        max-width: 900px;
+        padding: 2rem;
     }
     .match-over-screen h2 {
         font-size: 2.2rem;
