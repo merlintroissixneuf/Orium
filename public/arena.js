@@ -175,7 +175,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const wickHeight = 6;
         const isBullish = currentPrice >= startPrice;
         const priceDiff = Math.abs(currentPrice - startPrice);
-        const fillPercentage = Math.min(priceDiff / MAX_PRICE_SWING, 1); // Progressive fill
+        const fillPercentage = Math.min(priceDiff / MAX_PRICE_SWING, 1);
 
         // Draw price markers
         candleCtx.fillStyle = '#FFFFFF';
@@ -185,34 +185,34 @@ document.addEventListener('DOMContentLoaded', () => {
             candleCtx.fillText(`${price.toFixed(0)}`, 10, y + 3);
         }
 
-        // Apply oscillation effect
-        const xOffset = oscillation > 0 ? Math.sin(Date.now() / 50) * oscillation : 0;
+        // Apply vertical oscillation
+        const yOffset = oscillation > 0 ? Math.sin(Date.now() / 50) * oscillation : 0;
         oscillation *= 0.9;
         if (oscillation < 0.1) oscillation = 0;
 
         // Draw wick
         candleCtx.strokeStyle = '#FFFFFF';
         candleCtx.lineWidth = 1;
-        const wickTop = midY - Math.max(currentPrice, startPrice) * scale - wickHeight / 2;
-        const wickBottom = midY - Math.min(currentPrice, startPrice) * scale + wickHeight / 2;
+        const wickTop = midY - Math.max(currentPrice, startPrice) * scale - wickHeight / 2 + yOffset;
+        const wickBottom = midY - Math.min(currentPrice, startPrice) * scale + wickHeight / 2 + yOffset;
         candleCtx.beginPath();
-        candleCtx.moveTo(width / 2 + xOffset, wickTop);
-        candleCtx.lineTo(width / 2 + xOffset, wickBottom);
+        candleCtx.moveTo(width / 2, wickTop);
+        candleCtx.lineTo(width / 2, wickBottom);
         candleCtx.stroke();
 
         // Draw body outline
         candleCtx.strokeStyle = '#FFFFFF';
         candleCtx.lineWidth = 1;
-        const bodyTop = midY - Math.max(currentPrice, startPrice) * scale;
+        const bodyTop = midY - Math.max(currentPrice, startPrice) * scale + yOffset;
         const bodyWidth = width / 12;
-        candleCtx.strokeRect(width / 2 - bodyWidth / 2 + xOffset, bodyTop, bodyWidth, bodyHeight);
+        candleCtx.strokeRect(width / 2 - bodyWidth / 2, bodyTop, bodyWidth, bodyHeight);
 
         // Draw progressive fill
         if (fillPercentage > 0) {
             candleCtx.fillStyle = isBullish ? '#00FF00' : '#FF0000';
             const fillHeight = bodyHeight * fillPercentage;
             const fillTop = isBullish ? bodyTop + (bodyHeight - fillHeight) : bodyTop;
-            candleCtx.fillRect(width / 2 - bodyWidth / 2 + xOffset, fillTop, bodyWidth, fillHeight);
+            candleCtx.fillRect(width / 2 - bodyWidth / 2, fillTop, bodyWidth, fillHeight);
         }
     }
 
@@ -231,7 +231,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function animateTapIndicator() {
         if (!showTapIndicator) {
             if (animationFrameId) cancelAnimationFrame(animationFrameId);
-            drawCandle(); // Ensure clean canvas
+            drawCandle();
             return;
         }
         drawCandle();
@@ -240,7 +240,7 @@ document.addEventListener('DOMContentLoaded', () => {
         candleCtx.fillStyle = `rgba(255, 255, 255, ${opacity})`;
         candleCtx.font = '10px "Press Start 2P"';
         candleCtx.textAlign = 'center';
-        candleCtx.fillText('Tap on the Candle!', candleCanvas.width / 2, candleCanvas.height - 15);
+        candleCtx.fillText('Tap to Push!', candleCanvas.width / 2, candleCanvas.height - 15);
         animationFrameId = requestAnimationFrame(animateTapIndicator);
     }
 });
