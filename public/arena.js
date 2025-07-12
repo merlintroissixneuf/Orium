@@ -12,20 +12,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let startPrice = 0;
     let currentPrice = 0;
+    let targetPrice = 0; // For smooth interpolation
     let canTap = false;
     let userTapCount = 0;
     let showTapIndicator = false;
-    let lastRedirect = 0; // Throttle redirects
-    let animationFrameId = null; // Track animation frame
+    let lastRedirect = 0;
+    let animationFrameId = null;
+    let lastTapTime = 0; // For oscillation effect
+    let oscillation = 0; // Subtle shake on tap
 
     const urlParams = new URLSearchParams(window.location.search);
     const matchId = urlParams.get('matchId');
     const token = localStorage.getItem('authToken');
 
-    // Prevent rapid redirect loops
     const now = Date.now();
     if (!matchId || !token) {
-        if (now - lastRedirect > 1000) { // Throttle to once per second
+        if (now - lastRedirect > 1000) {
             lastRedirect = now;
             console.log('Missing matchId or authToken, redirecting to lobby');
             window.location.href = '/';
@@ -40,9 +42,11 @@ document.addEventListener('DOMContentLoaded', () => {
             socket.emit('playerTap', { matchId });
             userTapCount++;
             userTapCountDisplay.textContent = `Your Taps: ${userTapCount}`;
+            lastTapTime = Date.now(); // Trigger oscillation
+            oscillation = 2; // Small shake effect
         }
     };
-    
+
     arenaContent.addEventListener('click', handleTap);
     arenaContent.addEventListener('touchstart', handleTap);
     document.addEventListener('keydown', (e) => {
@@ -61,21 +65,22 @@ document.addEventListener('DOMContentLoaded', () => {
         factionIndicator.textContent = `FACTION: ${data.faction}`;
         startPrice = parseFloat(data.start_price);
         currentPrice = startPrice;
+        targetPrice = startPrice;
         showTapIndicator = true;
-        setTimeout(() => { 
+        setTimeout(() => {
             showTapIndicator = false;
-            if (animationFrameId) cancelAnimationFrame(animationFrameId); // Stop animation
-        }, 3000); // Show tap indicator for 3 seconds
+            if (animationFrameId) cancelAnimationFrame(animationFrameId);
+        }, 3000);
         drawCandle();
-        if (showTapIndicator) animationFrameId = requestAnimationFrame(animateTapIndicator); // Start animation
+        if (showTapIndicator) animationFrameId = requestAnimationFrame(animateTapIndicator);
         startCountdown();
     });
-    
+
     socket.on('gameStateUpdate', (data) => {
-        currentPrice = data.newPrice;
-        drawCandle();
+        targetPrice = data.newPrice; // Update target for interpolation
         bullsScoreDisplay.textContent = `BULLS: ${data.bullTaps || 0}`;
         bearsScoreDisplay.textContent = `BEARS: ${data.bearTaps || 0}`;
+        if (!animationFrameId) animationFrameId = requestAnimationFrame(animateCandle); // Start animation
     });
 
     socket.on('timeUpdate', (data) => {
@@ -98,8 +103,8 @@ document.addEventListener('DOMContentLoaded', () => {
         arenaContent.removeEventListener('touchstart', handleTap);
         document.removeEventListener('keydown', handleTap);
         canTap = false;
-        if (animationFrameId) cancelAnimationFrame(animationFrameId); // Stop animation
-        const leaderboardHTML = data.leaderboard.map(player => 
+        if (animationFrameId) cancelAnimationFrame(animationFrameId);
+        const leaderboardHTML = data.leaderboard.map(player =>
             `<div class="leaderboard-entry">${player.username}: ${player.tap_count} taps</div>`
         ).join('');
         arenaContent.innerHTML = `
@@ -111,7 +116,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     ${leaderboardHTML}
                 </div>
                 <button id="lobbyReturnButton">Return to Lobby</button>
-            </div
+            </div>
         `;
         document.getElementById('lobbyReturnButton').addEventListener('click', () => {
             window.location.href = '/';
@@ -134,7 +139,7 @@ document.addEventListener('DOMContentLoaded', () => {
     socket.on('disconnect', () => {
         console.log('Socket disconnected');
         canTap = false;
-        if (animationFrameId) cancelAnimationFrame(animationFrameId); // Stop animation
+        if (animationFrameId) cancelAnimationFrame(animationFrameId);
         alert('Disconnected. Reconnecting...');
     });
 
@@ -152,14 +157,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const width = candleCanvas.width;
         const height = candleCanvas.height;
         candleCtx.clearRect(0, 0, width, height);
-
-        // Set pixelated rendering
         candleCtx.imageSmoothingEnabled = false;
 
         const midY = height / 2;
         const scale = height / (2 * MAX_PRICE_SWING);
         const bodyHeight = Math.abs(currentPrice - startPrice) * scale;
-        const wickHeight = 8; // Thinner wick for sobriety
+        const wickHeight = 6; // Thinner wick
+        const isBullish = currentPrice > startPrice;
 
         // Draw price markers
         candleCtx.fillStyle = '#FFFFFF';
@@ -169,24 +173,39 @@ document.addEventListener('DOMContentLoaded', () => {
             candleCtx.fillText(`${price.toFixed(0)}`, 10, y + 3);
         }
 
-        // Set candle colors
-        const isBullish = currentPrice > startPrice;
-        candleCtx.fillStyle = isBullish ? '#00FF00' : '#FF0000';
-        candleCtx.strokeStyle = '#FFFFFF';
-        candleCtx.lineWidth = 2; // Thinner wick for neatness
+        // Apply oscillation effect
+        const xOffset = oscillation > 0 ? Math.sin(Date.now() / 50) * oscillation : 0;
+        oscillation *= 0.9; // Dampen oscillation
+        if (oscillation < 0.1) oscillation = 0; // Stop when small
 
         // Draw wick
+        candleCtx.strokeStyle = '#FFFFFF';
+        candleCtx.lineWidth = 1; // Thinner wick
         const wickTop = midY - (Math.max(currentPrice, startPrice) * scale) - wickHeight / 2;
         const wickBottom = midY - (Math.min(currentPrice, startPrice) * scale) + wickHeight / 2 + bodyHeight;
         candleCtx.beginPath();
-        candleCtx.moveTo(width / 2, wickTop);
-        candleCtx.lineTo(width / 2, wickBottom);
+        candleCtx.moveTo(width / 2 + xOffset, wickTop);
+        candleCtx.lineTo(width / 2 + xOffset, wickBottom);
         candleCtx.stroke();
 
-        // Draw body (smaller, neater block)
+        // Draw body
+        candleCtx.fillStyle = isBullish ? '#00FF00' : '#FF0000';
         const bodyTop = midY - Math.max(currentPrice, startPrice) * scale;
-        const bodyWidth = width / 8; // Reduced width for sobriety
-        candleCtx.fillRect(width / 2 - bodyWidth / 2, bodyTop, bodyWidth, bodyHeight);
+        const bodyWidth = width / 12; // Thinner body
+        candleCtx.fillRect(width / 2 - bodyWidth / 2 + xOffset, bodyTop, bodyWidth, bodyHeight);
+    }
+
+    function animateCandle() {
+        // Interpolate currentPrice towards targetPrice
+        const lerpFactor = 0.1; // Smoothness of transition
+        currentPrice += (targetPrice - currentPrice) * lerpFactor;
+        if (Math.abs(currentPrice - targetPrice) < 0.01) currentPrice = targetPrice; // Snap to target
+        drawCandle();
+        if (Math.abs(currentPrice - targetPrice) > 0.01 || oscillation > 0) {
+            animationFrameId = requestAnimationFrame(animateCandle); // Continue animation
+        } else {
+            animationFrameId = null; // Stop when stable
+        }
     }
 
     function animateTapIndicator() {
@@ -196,11 +215,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         drawCandle();
         const now = Date.now();
-        const opacity = 0.5 + 0.5 * Math.sin(now / 200); // Subtle pulsing effect
-        candleCtx.fillStyle = `rgba(255, 255, 255, ${opacity})`; // White with pulsing opacity
-        candleCtx.font = '12px "Press Start 2P"';
+        const opacity = 0.5 + 0.5 * Math.sin(now / 150); // Faster pulse
+        candleCtx.fillStyle = `rgba(255, 255, 255, ${opacity})`;
+        candleCtx.font = '10px "Press Start 2P"';
         candleCtx.textAlign = 'center';
-        candleCtx.fillText('Tap Here!', candleCanvas.width / 2, candleCanvas.height - 20);
-        animationFrameId = requestAnimationFrame(animateTapIndicator); // Continue animation
+        candleCtx.fillText('Tap Here!', candleCanvas.width / 2, candleCanvas.height - 15);
+        animationFrameId = requestAnimationFrame(animateTapIndicator);
     }
 });
