@@ -49,19 +49,24 @@ input::placeholder {
 }
 button { 
     width: 100%; 
-    padding: 10px; 
+    padding: 8px; 
     background-color: #00FF00; 
     color: #000000; 
-    font-family: 'Press Start 2P', cursive;
-    font-weight: bold; 
+    font-family: 'Press Start 2P', cursive; 
+    font-size: 0.7rem;
     cursor: pointer; 
-    text-transform: uppercase;
-    margin: 0.8rem 0;
-    transition: background-color 0.2s, color 0.2s;
+    transition: background-color 0.2s, color 0.2s, box-shadow 0.2s;
 }
 button:hover {
     background-color: #FFFFFF;
     color: #000000;
+    box-shadow: 0 0 5px #00FF00;
+}
+button:disabled {
+    background-color: #000000;
+    color: #FFFFFF;
+    cursor: not-allowed;
+    box-shadow: none;
 }
 #message { 
     margin: 0.8rem 0; 
@@ -114,11 +119,12 @@ a:hover {
     padding: 6px 10px;
     font-size: 0.7rem;
     width: auto;
-    transition: background-color 0.2s, color 0.2s;
+    transition: background-color 0.2s, color 0.2s, box-shadow 0.2s;
 }
 .logout-btn:hover {
     background: #FF0000;
     color: #000000;
+    box-shadow: 0 0 5px #FF0000;
 }
 .game-modes {
     display: flex;
@@ -147,11 +153,6 @@ a:hover {
 }
 .game-tile button {
     font-size: 0.7rem;
-}
-.game-tile button:disabled {
-    background-color: #000000;
-    color: #FFFFFF;
-    cursor: not-allowed;
 }
 
 /* --- Arena Styles --- */
@@ -249,11 +250,12 @@ a:hover {
     color: #00FF00;
     font-family: 'Press Start 2P', cursive;
     cursor: pointer;
-    transition: background-color 0.2s, color 0.2s;
+    transition: background-color 0.2s, color 0.2s, box-shadow 0.2s;
 }
 #lobbyReturnButton:hover {
     background-color: #00FF00;
     color: #000000;
+    box-shadow: 0 0 5px #00FF00;
 }
 
 /* --- Auth Styles --- */
@@ -332,9 +334,49 @@ a:hover {
     }
     button {
         font-size: 0.65rem;
-        padding: 8px;
+        padding: 6px;
     }
     #candleChart {
         height: 200px;
+    }
+}
+
+/* --- Larger Screens --- */
+@media (min-width: 1200px) {
+    .container {
+        max-width: 900px;
+        padding: 2rem;
+    }
+    h1, h2 {
+        font-size: 1.8rem;
+    }
+    h3 {
+        font-size: 1.4rem;
+    }
+    button {
+        font-size: 0.9rem;
+        padding: 10px;
+    }
+    .game-tile {
+        padding: 1.5rem;
+    }
+    #candleChart {
+        max-width: 80vw;
+        height: 350px;
+    }
+    #factionIndicator, #timer, #countdown {
+        font-size: 1.4rem;
+    }
+    #scores {
+        font-size: 0.9rem;
+    }
+    .match-over-screen h2 {
+        font-size: 2.2rem;
+    }
+    .match-over-screen h3 {
+        font-size: 1.8rem;
+    }
+    .leaderboard {
+        font-size: 0.8rem;
     }
 }

@@ -9,7 +9,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const candleCanvas = document.getElementById('candleChart');
     const candleCtx = candleCanvas.getContext('2d');
     const MAX_PRICE_SWING = 15.00;
-    const MIN_TAP_INTERVAL = 50; // Debounce interval for touch
+    const MIN_TAP_INTERVAL = 50;
 
     let startPrice = 0;
     let currentPrice = 0;
@@ -21,7 +21,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let animationFrameId = null;
     let lastTapTime = 0;
     let oscillation = 0;
-    let lastTouchTime = 0; // For touch debouncing
+    let lastTouchTime = 0;
 
     const urlParams = new URLSearchParams(window.location.search);
     const matchId = urlParams.get('matchId');
@@ -51,7 +51,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     arenaContent.addEventListener('click', handleTap);
     arenaContent.addEventListener('touchstart', (e) => {
-        e.preventDefault(); // Prevent zoom
+        e.preventDefault();
         const now = Date.now();
         if (now - lastTouchTime >= MIN_TAP_INTERVAL) {
             handleTap();
@@ -79,6 +79,7 @@ document.addEventListener('DOMContentLoaded', () => {
         setTimeout(() => {
             showTapIndicator = false;
             if (animationFrameId) cancelAnimationFrame(animationFrameId);
+            drawCandle(); // Redraw to ensure indicator is gone
         }, 3000);
         drawCandle();
         if (showTapIndicator) animationFrameId = requestAnimationFrame(animateTapIndicator);
@@ -170,9 +171,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const midY = height / 2;
         const scale = height / (2 * MAX_PRICE_SWING);
-        const bodyHeight = Math.abs(currentPrice - startPrice) * scale || 2; // Minimum height for visibility
+        const bodyHeight = Math.max(Math.abs(currentPrice - startPrice) * scale, 2);
         const wickHeight = 6;
         const isBullish = currentPrice >= startPrice;
+        const priceDiff = Math.abs(currentPrice - startPrice);
+        const fillPercentage = Math.min(priceDiff / MAX_PRICE_SWING, 1); // Progressive fill
 
         // Draw price markers
         candleCtx.fillStyle = '#FFFFFF';
@@ -187,11 +190,30 @@ document.addEventListener('DOMContentLoaded', () => {
         oscillation *= 0.9;
         if (oscillation < 0.1) oscillation = 0;
 
-        // Draw body (no wick, no border)
-        candleCtx.fillStyle = isBullish ? '#00FF00' : '#FF0000';
+        // Draw wick
+        candleCtx.strokeStyle = '#FFFFFF';
+        candleCtx.lineWidth = 1;
+        const wickTop = midY - Math.max(currentPrice, startPrice) * scale - wickHeight / 2;
+        const wickBottom = midY - Math.min(currentPrice, startPrice) * scale + wickHeight / 2;
+        candleCtx.beginPath();
+        candleCtx.moveTo(width / 2 + xOffset, wickTop);
+        candleCtx.lineTo(width / 2 + xOffset, wickBottom);
+        candleCtx.stroke();
+
+        // Draw body outline
+        candleCtx.strokeStyle = '#FFFFFF';
+        candleCtx.lineWidth = 1;
         const bodyTop = midY - Math.max(currentPrice, startPrice) * scale;
         const bodyWidth = width / 12;
-        candleCtx.fillRect(width / 2 - bodyWidth / 2 + xOffset, bodyTop, bodyWidth, bodyHeight);
+        candleCtx.strokeRect(width / 2 - bodyWidth / 2 + xOffset, bodyTop, bodyWidth, bodyHeight);
+
+        // Draw progressive fill
+        if (fillPercentage > 0) {
+            candleCtx.fillStyle = isBullish ? '#00FF00' : '#FF0000';
+            const fillHeight = bodyHeight * fillPercentage;
+            const fillTop = isBullish ? bodyTop + (bodyHeight - fillHeight) : bodyTop;
+            candleCtx.fillRect(width / 2 - bodyWidth / 2 + xOffset, fillTop, bodyWidth, fillHeight);
+        }
     }
 
     function animateCandle() {
@@ -209,6 +231,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function animateTapIndicator() {
         if (!showTapIndicator) {
             if (animationFrameId) cancelAnimationFrame(animationFrameId);
+            drawCandle(); // Ensure clean canvas
             return;
         }
         drawCandle();
