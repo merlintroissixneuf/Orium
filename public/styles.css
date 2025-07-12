@@ -196,6 +196,7 @@ a:hover {
     height: 250px;
     margin: 0.8rem 0;
     image-rendering: pixelated;
+    border: none;
 }
 #scores {
     display: flex;

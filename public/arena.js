@@ -9,17 +9,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const candleCanvas = document.getElementById('candleChart');
     const candleCtx = candleCanvas.getContext('2d');
     const MAX_PRICE_SWING = 15.00;
+    const MIN_TAP_INTERVAL = 50; // Debounce interval for touch
 
     let startPrice = 0;
     let currentPrice = 0;
-    let targetPrice = 0; // For smooth interpolation
+    let targetPrice = 0;
     let canTap = false;
     let userTapCount = 0;
     let showTapIndicator = false;
     let lastRedirect = 0;
     let animationFrameId = null;
-    let lastTapTime = 0; // For oscillation effect
-    let oscillation = 0; // Subtle shake on tap
+    let lastTapTime = 0;
+    let oscillation = 0;
+    let lastTouchTime = 0; // For touch debouncing
 
     const urlParams = new URLSearchParams(window.location.search);
     const matchId = urlParams.get('matchId');
@@ -42,13 +44,20 @@ document.addEventListener('DOMContentLoaded', () => {
             socket.emit('playerTap', { matchId });
             userTapCount++;
             userTapCountDisplay.textContent = `Your Taps: ${userTapCount}`;
-            lastTapTime = Date.now(); // Trigger oscillation
-            oscillation = 2; // Small shake effect
+            lastTapTime = Date.now();
+            oscillation = 2;
         }
     };
 
     arenaContent.addEventListener('click', handleTap);
-    arenaContent.addEventListener('touchstart', handleTap);
+    arenaContent.addEventListener('touchstart', (e) => {
+        e.preventDefault(); // Prevent zoom
+        const now = Date.now();
+        if (now - lastTouchTime >= MIN_TAP_INTERVAL) {
+            handleTap();
+            lastTouchTime = now;
+        }
+    });
     document.addEventListener('keydown', (e) => {
         if (canTap && (e.key === ' ' || e.key === 'Enter')) {
             handleTap();
@@ -63,7 +72,7 @@ document.addEventListener('DOMContentLoaded', () => {
     socket.on('matchJoined', (data) => {
         console.log('Match joined:', data);
         factionIndicator.textContent = `FACTION: ${data.faction}`;
-        startPrice = parseFloat(data.start_price);
+        startPrice = parseFloat(data.start_price) || 0;
         currentPrice = startPrice;
         targetPrice = startPrice;
         showTapIndicator = true;
@@ -77,10 +86,10 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     socket.on('gameStateUpdate', (data) => {
-        targetPrice = data.newPrice; // Update target for interpolation
+        targetPrice = parseFloat(data.newPrice) || 0;
         bullsScoreDisplay.textContent = `BULLS: ${data.bullTaps || 0}`;
         bearsScoreDisplay.textContent = `BEARS: ${data.bearTaps || 0}`;
-        if (!animationFrameId) animationFrameId = requestAnimationFrame(animateCandle); // Start animation
+        if (!animationFrameId) animationFrameId = requestAnimationFrame(animateCandle);
     });
 
     socket.on('timeUpdate', (data) => {
@@ -161,9 +170,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const midY = height / 2;
         const scale = height / (2 * MAX_PRICE_SWING);
-        const bodyHeight = Math.abs(currentPrice - startPrice) * scale;
-        const wickHeight = 6; // Thinner wick
-        const isBullish = currentPrice > startPrice;
+        const bodyHeight = Math.abs(currentPrice - startPrice) * scale || 2; // Minimum height for visibility
+        const wickHeight = 6;
+        const isBullish = currentPrice >= startPrice;
 
         // Draw price markers
         candleCtx.fillStyle = '#FFFFFF';
@@ -175,36 +184,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Apply oscillation effect
         const xOffset = oscillation > 0 ? Math.sin(Date.now() / 50) * oscillation : 0;
-        oscillation *= 0.9; // Dampen oscillation
-        if (oscillation < 0.1) oscillation = 0; // Stop when small
+        oscillation *= 0.9;
+        if (oscillation < 0.1) oscillation = 0;
 
-        // Draw wick
-        candleCtx.strokeStyle = '#FFFFFF';
-        candleCtx.lineWidth = 1; // Thinner wick
-        const wickTop = midY - (Math.max(currentPrice, startPrice) * scale) - wickHeight / 2;
-        const wickBottom = midY - (Math.min(currentPrice, startPrice) * scale) + wickHeight / 2 + bodyHeight;
-        candleCtx.beginPath();
-        candleCtx.moveTo(width / 2 + xOffset, wickTop);
-        candleCtx.lineTo(width / 2 + xOffset, wickBottom);
-        candleCtx.stroke();
-
-        // Draw body
+        // Draw body (no wick, no border)
         candleCtx.fillStyle = isBullish ? '#00FF00' : '#FF0000';
         const bodyTop = midY - Math.max(currentPrice, startPrice) * scale;
-        const bodyWidth = width / 12; // Thinner body
+        const bodyWidth = width / 12;
         candleCtx.fillRect(width / 2 - bodyWidth / 2 + xOffset, bodyTop, bodyWidth, bodyHeight);
     }
 
     function animateCandle() {
-        // Interpolate currentPrice towards targetPrice
-        const lerpFactor = 0.1; // Smoothness of transition
+        const lerpFactor = 0.1;
         currentPrice += (targetPrice - currentPrice) * lerpFactor;
-        if (Math.abs(currentPrice - targetPrice) < 0.01) currentPrice = targetPrice; // Snap to target
+        if (Math.abs(currentPrice - targetPrice) < 0.01) currentPrice = targetPrice;
         drawCandle();
         if (Math.abs(currentPrice - targetPrice) > 0.01 || oscillation > 0) {
-            animationFrameId = requestAnimationFrame(animateCandle); // Continue animation
+            animationFrameId = requestAnimationFrame(animateCandle);
         } else {
-            animationFrameId = null; // Stop when stable
+            animationFrameId = null;
         }
     }
 
@@ -215,11 +213,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         drawCandle();
         const now = Date.now();
-        const opacity = 0.5 + 0.5 * Math.sin(now / 150); // Faster pulse
+        const opacity = 0.5 + 0.5 * Math.sin(now / 150);
         candleCtx.fillStyle = `rgba(255, 255, 255, ${opacity})`;
         candleCtx.font = '10px "Press Start 2P"';
         candleCtx.textAlign = 'center';
-        candleCtx.fillText('Tap Here!', candleCanvas.width / 2, candleCanvas.height - 15);
+        candleCtx.fillText('Tap on the Candle!', candleCanvas.width / 2, candleCanvas.height - 15);
         animationFrameId = requestAnimationFrame(animateTapIndicator);
     }
 });
