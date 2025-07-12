@@ -45,7 +45,7 @@ document.addEventListener('DOMContentLoaded', () => {
             userTapCountDisplay.textContent = `Your Taps: ${userTapCount}`;
             lastTapTime = Date.now();
             oscillation = 2;
-            console.log(`Tap registered: userTapCount=${userTapCount}, currentPrice=${currentPrice}`);
+            console.log(`Tap registered: userTapCount=${userTapCount}, currentPrice=${currentPrice}, targetPrice=${targetPrice}`);
         }
     };
 
@@ -81,6 +81,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (animationFrameId) cancelAnimationFrame(animationFrameId);
             updatePriceBox();
             priceBox.style.backgroundImage = 'none';
+            console.log('Tap indicator cleared');
         }, 3000);
         updatePriceBox();
         if (showTapIndicator) animationFrameId = requestAnimationFrame(animateTapIndicator);
@@ -166,6 +167,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function updatePriceBox() {
+        // Ensure price is within bounds
+        currentPrice = Math.max(-MAX_PRICE_SWING, Math.min(MAX_PRICE_SWING, currentPrice));
         // Map currentPrice (-15 to +15) to gradient percentage (0% to 100%)
         const greenPercentage = 50 + (currentPrice / MAX_PRICE_SWING) * 50; // Green grows from bottom
         const redPercentage = 100 - greenPercentage; // Red grows from top
@@ -175,11 +178,11 @@ document.addEventListener('DOMContentLoaded', () => {
         priceBox.style.transform = `translateY(${yOffset}px)`;
         oscillation *= 0.9;
         if (oscillation < 0.1) oscillation = 0;
-        console.log(`Price box updated: currentPrice=${currentPrice}, greenPercentage=${greenPercentage}%`);
+        console.log(`Price box updated: currentPrice=${currentPrice.toFixed(2)}, greenPercentage=${greenPercentage.toFixed(2)}%`);
     }
 
     function animatePriceBox() {
-        const lerpFactor = 0.2; // Increased for faster response
+        const lerpFactor = 0.3; // Increased for faster response
         currentPrice += (targetPrice - currentPrice) * lerpFactor;
         if (Math.abs(currentPrice - targetPrice) < 0.01) currentPrice = targetPrice;
         updatePriceBox();
