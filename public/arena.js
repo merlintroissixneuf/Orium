@@ -6,8 +6,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const bullsScoreDisplay = document.querySelector('#bullsScore');
     const bearsScoreDisplay = document.querySelector('#bearsScore');
     const userTapCountDisplay = document.getElementById('userTapCount');
-    const candleCanvas = document.getElementById('candleChart');
-    const candleCtx = candleCanvas.getContext('2d');
+    const priceBox = document.getElementById('priceBox');
     const MAX_PRICE_SWING = 15.00;
     const MIN_TAP_INTERVAL = 50;
 
@@ -79,9 +78,9 @@ document.addEventListener('DOMContentLoaded', () => {
         setTimeout(() => {
             showTapIndicator = false;
             if (animationFrameId) cancelAnimationFrame(animationFrameId);
-            drawCandle(); // Redraw to ensure indicator is gone
+            updatePriceBox();
         }, 3000);
-        drawCandle();
+        updatePriceBox();
         if (showTapIndicator) animationFrameId = requestAnimationFrame(animateTapIndicator);
         startCountdown();
     });
@@ -90,7 +89,7 @@ document.addEventListener('DOMContentLoaded', () => {
         targetPrice = parseFloat(data.newPrice) || 0;
         bullsScoreDisplay.textContent = `BULLS: ${data.bullTaps || 0}`;
         bearsScoreDisplay.textContent = `BEARS: ${data.bearTaps || 0}`;
-        if (!animationFrameId) animationFrameId = requestAnimationFrame(animateCandle);
+        if (!animationFrameId) animationFrameId = requestAnimationFrame(animatePriceBox);
     });
 
     socket.on('timeUpdate', (data) => {
@@ -163,66 +162,24 @@ document.addEventListener('DOMContentLoaded', () => {
         // Handled by server-side countdown event
     }
 
-    function drawCandle() {
-        const width = candleCanvas.width;
-        const height = candleCanvas.height;
-        candleCtx.clearRect(0, 0, width, height);
-        candleCtx.imageSmoothingEnabled = false;
-
-        const midY = height / 2;
-        const scale = height / (2 * MAX_PRICE_SWING);
-        const bodyHeight = Math.max(Math.abs(currentPrice - startPrice) * scale, 2);
-        const wickHeight = 6;
-        const isBullish = currentPrice >= startPrice;
-        const priceDiff = Math.abs(currentPrice - startPrice);
-        const fillPercentage = Math.min(priceDiff / MAX_PRICE_SWING, 1);
-
-        // Draw price markers
-        candleCtx.fillStyle = '#FFFFFF';
-        candleCtx.font = '8px "Press Start 2P"';
-        for (let price = -MAX_PRICE_SWING; price <= MAX_PRICE_SWING; price += 5) {
-            const y = midY - price * scale;
-            candleCtx.fillText(`${price.toFixed(0)}`, 10, y + 3);
-        }
-
+    function updatePriceBox() {
+        const greenPercentage = 50 + (currentPrice / MAX_PRICE_SWING) * 50; // Green grows from bottom
+        const redPercentage = 100 - greenPercentage; // Red from top
+        priceBox.style.background = `linear-gradient(to bottom, #FF0000 ${redPercentage}%, #00FF00 ${greenPercentage}%)`;
         // Apply vertical oscillation
         const yOffset = oscillation > 0 ? Math.sin(Date.now() / 50) * oscillation : 0;
+        priceBox.style.transform = `translateY(${yOffset}px)`;
         oscillation *= 0.9;
         if (oscillation < 0.1) oscillation = 0;
-
-        // Draw wick
-        candleCtx.strokeStyle = '#FFFFFF';
-        candleCtx.lineWidth = 1;
-        const wickTop = midY - Math.max(currentPrice, startPrice) * scale - wickHeight / 2 + yOffset;
-        const wickBottom = midY - Math.min(currentPrice, startPrice) * scale + wickHeight / 2 + yOffset;
-        candleCtx.beginPath();
-        candleCtx.moveTo(width / 2, wickTop);
-        candleCtx.lineTo(width / 2, wickBottom);
-        candleCtx.stroke();
-
-        // Draw body outline
-        candleCtx.strokeStyle = '#FFFFFF';
-        candleCtx.lineWidth = 1;
-        const bodyTop = midY - Math.max(currentPrice, startPrice) * scale + yOffset;
-        const bodyWidth = width / 12;
-        candleCtx.strokeRect(width / 2 - bodyWidth / 2, bodyTop, bodyWidth, bodyHeight);
-
-        // Draw progressive fill
-        if (fillPercentage > 0) {
-            candleCtx.fillStyle = isBullish ? '#00FF00' : '#FF0000';
-            const fillHeight = bodyHeight * fillPercentage;
-            const fillTop = isBullish ? bodyTop + (bodyHeight - fillHeight) : bodyTop;
-            candleCtx.fillRect(width / 2 - bodyWidth / 2, fillTop, bodyWidth, fillHeight);
-        }
     }
 
-    function animateCandle() {
+    function animatePriceBox() {
         const lerpFactor = 0.1;
         currentPrice += (targetPrice - currentPrice) * lerpFactor;
         if (Math.abs(currentPrice - targetPrice) < 0.01) currentPrice = targetPrice;
-        drawCandle();
+        updatePriceBox();
         if (Math.abs(currentPrice - targetPrice) > 0.01 || oscillation > 0) {
-            animationFrameId = requestAnimationFrame(animateCandle);
+            animationFrameId = requestAnimationFrame(animatePriceBox);
         } else {
             animationFrameId = null;
         }
@@ -231,16 +188,24 @@ document.addEventListener('DOMContentLoaded', () => {
     function animateTapIndicator() {
         if (!showTapIndicator) {
             if (animationFrameId) cancelAnimationFrame(animationFrameId);
-            drawCandle();
+            updatePriceBox();
+            priceBox.style.backgroundImage = 'none';
             return;
         }
-        drawCandle();
+        updatePriceBox();
+        const canvas = document.createElement('canvas');
+        canvas.width = priceBox.offsetWidth;
+        canvas.height = 30;
+        const ctx = canvas.getContext('2d');
         const now = Date.now();
         const opacity = 0.5 + 0.5 * Math.sin(now / 150);
-        candleCtx.fillStyle = `rgba(255, 255, 255, ${opacity})`;
-        candleCtx.font = '10px "Press Start 2P"';
-        candleCtx.textAlign = 'center';
-        candleCtx.fillText('Tap to Push!', candleCanvas.width / 2, candleCanvas.height - 15);
+        ctx.fillStyle = `rgba(255, 255, 255, ${opacity})`;
+        ctx.font = '10px "Press Start 2P"';
+        ctx.textAlign = 'center';
+        ctx.fillText('Tap to Push!', canvas.width / 2, 20);
+        priceBox.style.backgroundImage = `url(${canvas.toDataURL()})`;
+        priceBox.style.backgroundPosition = `center bottom`;
+        priceBox.style.backgroundRepeat = `no-repeat`;
         animationFrameId = requestAnimationFrame(animateTapIndicator);
     }
 });

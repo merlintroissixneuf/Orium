@@ -190,14 +190,25 @@ a:hover {
     text-shadow: 2px 2px #000000;
     margin-bottom: 0.8rem;
 }
-#candleChart {
-    background-color: #000000;
+#priceBox {
+    background: linear-gradient(to bottom, #FF0000 50%, #00FF00 50%);
     width: 100%;
     max-width: 90vw;
     height: 250px;
     margin: 0.8rem 0;
     image-rendering: pixelated;
     border: none;
+    position: relative;
+}
+#priceBox::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 50%;
+    width: 100%;
+    height: 2px;
+    background: #FFFFFF;
+    transform: translateY(-50%);
 }
 #scores {
     display: flex;
@@ -336,7 +347,7 @@ a:hover {
         font-size: 0.65rem;
         padding: 6px;
     }
-    #candleChart {
+    #priceBox {
         height: 200px;
     }
 }
@@ -360,7 +371,7 @@ a:hover {
     .game-tile {
         padding: 1.5rem;
     }
-    #candleChart {
+    #priceBox {
         max-width: 80vw;
         height: 350px;
     }
