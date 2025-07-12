@@ -10,6 +10,7 @@ body {
     padding: 0.5rem;
     font-size: 0.8rem;
     box-sizing: border-box;
+    image-rendering: pixelated;
 }
 .container { 
     background-color: #000000; 
@@ -28,11 +29,12 @@ h3 {
     color: #00FF00; 
     font-size: 1.1rem;
     margin: 0.8rem 0;
-    text-shadow: 1px 1px #000000;
+    text-shadow: 2px 2px #000000;
 }
 p {
     line-height: 1.4;
     margin: 0.5rem 0;
+    text-shadow: 1px 1px #000000;
 }
 input { 
     width: 100%; 
@@ -42,6 +44,8 @@ input {
     color: #FFFFFF; 
     box-sizing: border-box;
     font-family: 'Press Start 2P', cursive;
+    border: 2px solid #FFFFFF;
+    image-rendering: pixelated;
 }
 input::placeholder {
     color: #FFFFFF;
@@ -50,21 +54,24 @@ input::placeholder {
 button { 
     width: 100%; 
     padding: 8px; 
-    background-color: #00FF00; 
-    color: #000000; 
+    background-color: #000000; 
+    color: #00FF00; 
     font-family: 'Press Start 2P', cursive; 
     font-size: 0.7rem;
     cursor: pointer; 
+    border: 2px solid #00FF00;
     transition: background-color 0.2s, color 0.2s, box-shadow 0.2s;
+    image-rendering: pixelated;
 }
 button:hover {
-    background-color: #FFFFFF;
+    background-color: #00FF00;
     color: #000000;
     box-shadow: 0 0 5px #00FF00;
 }
 button:disabled {
     background-color: #000000;
     color: #FFFFFF;
+    border: 2px solid #FFFFFF;
     cursor: not-allowed;
     box-shadow: none;
 }
@@ -73,11 +80,13 @@ button:disabled {
     text-align: center; 
     font-weight: bold; 
     line-height: 1.4;
+    text-shadow: 2px 2px #000000;
 }
 .toggle-link { 
     text-align: center; 
     margin: 0.8rem 0; 
     font-size: 0.7rem; 
+    text-shadow: 1px 1px #000000;
 }
 a { 
     color: #00FF00; 
@@ -92,9 +101,11 @@ a:hover {
 }
 .success { 
     color: #00FF00; 
+    text-shadow: 2px 2px #000000;
 }
 .error { 
     color: #FF0000; 
+    text-shadow: 2px 2px #000000;
 }
 
 /* --- Lobby Styles --- */
@@ -107,11 +118,13 @@ a:hover {
 }
 .user-info .username {
     font-size: 1.1rem;
+    text-shadow: 2px 2px #000000;
 }
 .user-info .wallet {
     font-size: 0.7rem;
     opacity: 0.8;
     margin-top: 0.4rem;
+    text-shadow: 1px 1px #000000;
 }
 .logout-btn {
     background: none;
@@ -119,7 +132,9 @@ a:hover {
     padding: 6px 10px;
     font-size: 0.7rem;
     width: auto;
+    border: 2px solid #FF0000;
     transition: background-color 0.2s, color 0.2s, box-shadow 0.2s;
+    image-rendering: pixelated;
 }
 .logout-btn:hover {
     background: #FF0000;
@@ -144,12 +159,13 @@ a:hover {
     color: #00FF00;
     margin: 0;
     font-size: 0.9rem;
+    text-shadow: 2px 2px #000000;
 }
 .game-tile p {
     font-size: 0.65rem;
     margin-bottom: 1.5rem;
     opacity: 0.8;
-    flex-grow: 1;
+    text-shadow: 1px 1px #000000;
 }
 .game-tile button {
     font-size: 0.7rem;
@@ -162,6 +178,7 @@ a:hover {
     align-items: center;
     width: 100%;
     max-width: 700px;
+    min-height: 80vh;
     background-color: #000000;
     padding: 1.5rem;
     cursor: pointer;
@@ -197,7 +214,7 @@ a:hover {
     height: 250px;
     margin: 0.8rem 0;
     image-rendering: pixelated;
-    border: none;
+    border: 2px solid #FFFFFF;
     position: relative;
 }
 #priceBox::after {
@@ -220,15 +237,15 @@ a:hover {
 }
 #bullsScore {
     color: #00FF00;
-    text-shadow: 1px 1px #000000;
+    text-shadow: 2px 2px #000000;
 }
 #bearsScore {
     color: #FF0000;
-    text-shadow: 1px 1px #000000;
+    text-shadow: 2px 2px #000000;
 }
 #userTapCount {
     color: #FFFFFF;
-    text-shadow: 1px 1px #000000;
+    text-shadow: 2px 2px #000000;
 }
 .match-over-screen {
     text-align: center;
@@ -237,6 +254,7 @@ a:hover {
     padding: 1.5rem;
     width: 100%;
     max-width: 700px;
+    border: 2px solid #FFFFFF;
 }
 .match-over-screen h2 {
     font-size: 1.8rem;
@@ -254,13 +272,14 @@ a:hover {
     margin: 0.8rem 0;
     font-size: 0.65rem;
     color: #FFFFFF;
-    text-shadow: 1px 1px #000000;
+    text-shadow: 2px 2px #000000;
 }
 .leaderboard-entry {
     margin: 0.4rem 0;
     padding: 0.4rem;
     background-color: #000000;
-    text-shadow: 1px 1px #000000;
+    border: 1px solid #FFFFFF;
+    text-shadow: 2px 2px #000000;
 }
 #lobbyReturnButton {
     margin-top: 0.8rem;
@@ -269,7 +288,9 @@ a:hover {
     color: #00FF00;
     font-family: 'Press Start 2P', cursive;
     cursor: pointer;
+    border: 2px solid #00FF00;
     transition: background-color 0.2s, color 0.2s, box-shadow 0.2s;
+    image-rendering: pixelated;
 }
 #lobbyReturnButton:hover {
     background-color: #00FF00;
@@ -288,6 +309,7 @@ a:hover {
     flex: 1;
     padding: 0.8rem;
     background-color: #000000;
+    border: 2px solid #FFFFFF;
 }
 .divider {
     width: 2px;
@@ -299,6 +321,7 @@ a:hover {
     color: #00FF00;
     font-size: 0.9rem;
     margin-top: 0.8rem;
+    text-shadow: 2px 2px #000000;
 }
 
 /* --- Custom Toggle --- */
@@ -311,6 +334,8 @@ a:hover {
     padding: 0.2rem 0.4rem;
     background-color: #000000;
     width: fit-content;
+    border: 1px solid #FFFFFF;
+    text-shadow: 1px 1px #000000;
 }
 .remember-toggle .toggle-label {
     margin-left: 0.4rem;
@@ -318,6 +343,7 @@ a:hover {
 .remember-toggle.active {
     background-color: #FFFFFF;
     color: #000000;
+    border: 1px solid #00FF00;
 }
 
 /* --- Mobile Responsiveness --- */
@@ -344,31 +370,36 @@ a:hover {
         flex-direction: column;
         gap: 0.4rem;
         align-items: center;
+        font-size: 0.8rem;
     }
     h1, h2 {
-        font-size: 1.2rem;
+        font-size: 1.3rem;
     }
     h3 {
-        font-size: 1rem;
+        font-size: 1.1rem;
     }
     button {
-        font-size: 0.65rem;
-        padding: 6px;
+        font-size: 0.75rem;
+        padding: 8px;
     }
     #priceBox {
-        height: 200px;
+        width: 95vw;
+        height: 300px;
+    }
+    #factionIndicator, #timer, #countdown {
+        font-size: 1.2rem;
     }
     .match-over-screen {
         padding: 0.8rem;
     }
     .match-over-screen h2 {
-        font-size: 1.4rem;
+        font-size: 1.5rem;
     }
     .match-over-screen h3 {
-        font-size: 1.2rem;
+        font-size: 1.3rem;
     }
     .leaderboard {
-        font-size: 0.6rem;
+        font-size: 0.7rem;
     }
 }
 

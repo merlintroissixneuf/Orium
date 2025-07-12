@@ -45,7 +45,7 @@ document.addEventListener('DOMContentLoaded', () => {
             userTapCountDisplay.textContent = `Your Taps: ${userTapCount}`;
             lastTapTime = Date.now();
             oscillation = 2;
-            console.log(`Tap registered: userTapCount=${userTapCount}, currentPrice=${currentPrice}, targetPrice=${targetPrice}`);
+            console.log(`Tap registered: userTapCount=${userTapCount}, currentPrice=${currentPrice.toFixed(2)}, targetPrice=${targetPrice.toFixed(2)}`);
         }
     };
 
@@ -92,7 +92,7 @@ document.addEventListener('DOMContentLoaded', () => {
         targetPrice = parseFloat(data.newPrice) || 0;
         bullsScoreDisplay.textContent = `BULLS: ${data.bullTaps || 0}`;
         bearsScoreDisplay.textContent = `BEARS: ${data.bearTaps || 0}`;
-        console.log(`Game state update: newPrice=${targetPrice}, bullTaps=${data.bullTaps}, bearTaps=${data.bearTaps}`);
+        console.log(`Game state update: newPrice=${targetPrice.toFixed(2)}, bullTaps=${data.bullTaps}, bearTaps=${data.bearTaps}`);
         if (!animationFrameId) animationFrameId = requestAnimationFrame(animatePriceBox);
     });
 
@@ -167,7 +167,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function updatePriceBox() {
-        // Ensure price is within bounds
+        // Clamp price to bounds
         currentPrice = Math.max(-MAX_PRICE_SWING, Math.min(MAX_PRICE_SWING, currentPrice));
         // Map currentPrice (-15 to +15) to gradient percentage (0% to 100%)
         const greenPercentage = 50 + (currentPrice / MAX_PRICE_SWING) * 50; // Green grows from bottom
@@ -178,15 +178,17 @@ document.addEventListener('DOMContentLoaded', () => {
         priceBox.style.transform = `translateY(${yOffset}px)`;
         oscillation *= 0.9;
         if (oscillation < 0.1) oscillation = 0;
+        // Force DOM repaint
+        priceBox.style.display = 'none';
+        priceBox.offsetHeight; // Trigger reflow
+        priceBox.style.display = 'block';
         console.log(`Price box updated: currentPrice=${currentPrice.toFixed(2)}, greenPercentage=${greenPercentage.toFixed(2)}%`);
     }
 
     function animatePriceBox() {
-        const lerpFactor = 0.3; // Increased for faster response
-        currentPrice += (targetPrice - currentPrice) * lerpFactor;
-        if (Math.abs(currentPrice - targetPrice) < 0.01) currentPrice = targetPrice;
+        currentPrice = targetPrice; // Direct update for immediate response
         updatePriceBox();
-        if (Math.abs(currentPrice - targetPrice) > 0.01 || oscillation > 0) {
+        if (oscillation > 0) {
             animationFrameId = requestAnimationFrame(animatePriceBox);
         } else {
             animationFrameId = null;
@@ -205,6 +207,7 @@ document.addEventListener('DOMContentLoaded', () => {
         canvas.width = priceBox.offsetWidth;
         canvas.height = 30;
         const ctx = canvas.getContext('2d');
+        ctx.imageSmoothingEnabled = false;
         const now = Date.now();
         const opacity = 0.5 + 0.5 * Math.sin(now / 150);
         ctx.fillStyle = `rgba(255, 255, 255, ${opacity})`;
