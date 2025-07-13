@@ -7,7 +7,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const bullsScoreDisplay = document.querySelector('#bullsScore');
     const bearsScoreDisplay = document.querySelector('#bearsScore');
     const userTapCountDisplay = document.getElementById('userTapCount');
-    const priceBox = document.getElementById('priceBox');
+    const priceBox = document.getElementById('priceBox'); // This will now be our canvas container
+    
+    // Create and append the canvas element
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    canvas.id = 'priceChartCanvas';
+    priceBox.appendChild(canvas);
+
     const MAX_PRICE_SWING = 15.00; // Max deviation from 0.00
     const MIN_TAP_INTERVAL = 50; // Minimum interval between taps in milliseconds
 
@@ -18,10 +25,11 @@ document.addEventListener('DOMContentLoaded', () => {
     let userTapCount = 0;
     let showTapIndicator = false; // Controls the pulsating "Tap to Push!" text
     let lastRedirect = 0; // Prevents multiple redirects on connection errors
-    let animationFrameId = null; // Stores the ID for requestAnimationFrame for price animation
+    let animationFrameId = null; // Stores the ID for requestAnimationFrame for chart animation
     let tapIndicatorAnimationFrameId = null; // Stores the ID for requestAnimationFrame for tap indicator
     let lastTapTime = 0; // Timestamp of the last successful tap
     let lastTouchTime = 0; // For mobile tap rate limiting
+    let playerFaction = null; // Store the player's assigned faction
 
     // Get matchId and token from URL parameters and local storage
     const urlParams = new URLSearchParams(window.location.search);
@@ -39,6 +47,16 @@ document.addEventListener('DOMContentLoaded', () => {
         return; // Stop execution if redirecting
     }
 
+    // Set up canvas dimensions (responsive)
+    const resizeCanvas = () => {
+        canvas.width = priceBox.offsetWidth;
+        canvas.height = priceBox.offsetHeight;
+        ctx.imageSmoothingEnabled = false; // For crisp pixel art
+        drawChart(); // Redraw chart on resize
+    };
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas(); // Initial canvas setup
+
     // Initialize Socket.IO connection with authentication and reconnection logic
     const socket = io({
         auth: { token },
@@ -51,12 +69,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // Handles player tap input (mouse click, touch, keyboard)
     const handleTap = () => {
         const tapNow = Date.now();
-        // Enforce client-side rate limiting to prevent spamming
         if (canTap && (tapNow - lastTapTime >= MIN_TAP_INTERVAL)) {
             socket.emit('playerTap', { matchId });
             userTapCount++;
             userTapCountDisplay.textContent = `Your Taps: ${userTapCount}`;
-            lastTapTime = tapNow; // Update last tap time
+            lastTapTime = tapNow;
             console.log(`Tap registered: userTapCount=${userTapCount}`);
         } else {
             console.log(`Tap rate-limited. Last tap: ${tapNow - lastTapTime}ms ago.`);
@@ -66,16 +83,16 @@ document.addEventListener('DOMContentLoaded', () => {
     // Event listeners for user input
     arenaContent.addEventListener('click', handleTap);
     arenaContent.addEventListener('touchstart', (e) => {
-        e.preventDefault(); // Prevent default touch behavior (e.g., scrolling, zooming)
+        e.preventDefault();
         const touchNow = Date.now();
         if (touchNow - lastTouchTime >= MIN_TAP_INTERVAL) {
             handleTap();
             lastTouchTime = touchNow;
         }
-    }, { passive: false }); // Use passive: false to allow preventDefault
+    }, { passive: false });
     document.addEventListener('keydown', (e) => {
         if (canTap && (e.key === ' ' || e.key === 'Enter')) {
-            e.preventDefault(); // Prevent default space/enter key actions (e.g., button click, scroll)
+            e.preventDefault();
             handleTap();
         }
     });
@@ -84,45 +101,36 @@ document.addEventListener('DOMContentLoaded', () => {
 
     socket.on('connect', () => {
         console.log('Socket connected, joining match:', matchId);
-        socket.emit('joinMatch', { matchId }); // Request to join the specific match
+        socket.emit('joinMatch', { matchId });
     });
 
     socket.on('matchJoined', (data) => {
         console.log('Match joined:', data);
-        factionIndicator.textContent = `FACTION: ${data.faction.toUpperCase()}`; // Display player's faction
+        playerFaction = data.faction.toUpperCase(); // Store player's faction
+        factionIndicator.textContent = `FACTION: ${playerFaction}`;
         startPrice = parseFloat(data.start_price) || 0;
-        currentPrice = startPrice; // Set initial displayed price
-        targetPrice = startPrice; // Set initial target price
+        currentPrice = startPrice;
+        targetPrice = startPrice;
 
-        showTapIndicator = true; // Show "Tap to Push!" indicator initially
-        // Schedule indicator to hide after 3 seconds
+        showTapIndicator = true;
         setTimeout(() => {
             showTapIndicator = false;
-            if (tapIndicatorAnimationFrameId) cancelAnimationFrame(tapIndicatorAnimationFrameId); // Stop indicator animation
-            priceBox.style.backgroundImage = 'none'; // Remove indicator canvas background
-            tapIndicatorAnimationFrameId = null; // Clear its animation frame ID
+            if (tapIndicatorAnimationFrameId) cancelAnimationFrame(tapIndicatorAnimationFrameId);
+            tapIndicatorAnimationFrameId = null;
+            drawChart(); // Redraw chart without indicator
             console.log('Tap indicator cleared');
         }, 3000);
 
-        // Start the price animation loop if not already running
-        if (!animationFrameId) {
-            animationFrameId = requestAnimationFrame(animatePriceBox);
-        }
-        // Start the tap indicator animation loop if not already running
-        if (!tapIndicatorAnimationFrameId) {
-            tapIndicatorAnimationFrameId = requestAnimationFrame(animateTapIndicator);
-        }
+        if (!animationFrameId) animationFrameId = requestAnimationFrame(animatePriceBox);
+        if (!tapIndicatorAnimationFrameId) tapIndicatorAnimationFrameId = requestAnimationFrame(animateTapIndicator);
     });
 
     socket.on('gameStateUpdate', (data) => {
-        targetPrice = parseFloat(data.newPrice) || 0; // Update target price from server
+        targetPrice = parseFloat(data.newPrice) || 0;
         bullsScoreDisplay.textContent = `BULLS: ${data.bullTaps || 0}`;
         bearsScoreDisplay.textContent = `BEARS: ${data.bearTaps || 0}`;
         console.log(`Game state update: newPrice=${targetPrice.toFixed(2)}, bullTaps=${data.bullTaps}, bearTaps=${data.bearTaps}`);
-        // Ensure price box animation is running to smoothly transition to new price
-        if (!animationFrameId) {
-            animationFrameId = requestAnimationFrame(animatePriceBox);
-        }
+        if (!animationFrameId) animationFrameId = requestAnimationFrame(animatePriceBox);
     });
 
     socket.on('timeUpdate', (data) => {
@@ -134,14 +142,13 @@ document.addEventListener('DOMContentLoaded', () => {
     socket.on('countdown', (data) => {
         countdownDisplay.textContent = `Starting in ${data.countdown}`;
         if (data.countdown <= 0) {
-            countdownDisplay.textContent = ''; // Clear countdown text
-            canTap = true; // Enable tapping when countdown finishes
+            countdownDisplay.textContent = '';
+            canTap = true;
         }
     });
 
     socket.on('matchEnd', (data) => {
         console.log('Match ended:', data);
-        // Disable input and stop all animations
         arenaContent.removeEventListener('click', handleTap);
         arenaContent.removeEventListener('touchstart', handleTap);
         document.removeEventListener('keydown', handleTap);
@@ -151,12 +158,10 @@ document.addEventListener('DOMContentLoaded', () => {
         animationFrameId = null;
         tapIndicatorAnimationFrameId = null;
 
-        // Construct leaderboard HTML with proper classes for consistent 8-bit styling
         const leaderboardHTML = data.leaderboard.map(player =>
             `<div class="leaderboard-entry"><span class="leaderboard-username">${player.username}</span>: <span class="leaderboard-taps">${player.tap_count} taps</span></div>`
         ).join('');
 
-        // Update arena content with game over screen
         arenaContent.innerHTML = `
             <div class="match-over-screen">
                 <h2>GAME OVER</h2>
@@ -168,7 +173,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 <button id="lobbyReturnButton">Return to Lobby</button>
             </div>
         `;
-        // Add event listener for return to lobby button
         document.getElementById('lobbyReturnButton').addEventListener('click', () => {
             window.location.href = '/';
         });
@@ -176,9 +180,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     socket.on('connect_error', (err) => {
         console.error('Socket connection error:', err.message);
-        // Redirect to lobby to prevent being stuck on a broken connection
         const now = Date.now();
-        if (now - lastRedirect > 1000) { // Throttle redirects to avoid loops
+        if (now - lastRedirect > 1000) {
             lastRedirect = now;
             window.location.href = '/';
         }
@@ -186,7 +189,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     socket.on('error', (data) => {
         console.error('Socket error:', data.message);
-        alert('An error occurred: ' + data.message); // Inform user of server-side errors
+        alert('An error occurred: ' + data.message);
     });
 
     socket.on('disconnect', (reason) => {
@@ -194,91 +197,149 @@ document.addEventListener('DOMContentLoaded', () => {
         canTap = false;
         if (animationFrameId) cancelAnimationFrame(animationFrameId);
         if (tapIndicatorAnimationFrameId) cancelAnimationFrame(tapIndicatorAnimationFrameId);
-        // Rely on automatic reconnection logic to handle UI updates
-        // No alert here, as reconnection attempts will follow
     });
 
     socket.on('reconnect', (attemptNumber) => {
         console.log(`Socket reconnected after ${attemptNumber} attempts.`);
-        canTap = true; // Re-enable tapping
-        if (matchId) { // Re-join the match to get the latest state
+        canTap = true;
+        if (matchId) {
             socket.emit('joinMatch', { matchId });
         }
     });
 
-    /**
-     * Updates the visual representation of the price box background.
-     * The background is a linear gradient that shifts based on the 'currentPrice'.
-     */
-    function updatePriceBox() {
-        // Clamp currentPrice within the defined swing limits for visual representation
-        const clampedPrice = Math.max(-MAX_PRICE_SWING, Math.min(MAX_PRICE_SWING, currentPrice));
-
-        // Map clampedPrice (-15 to +15) to a percentage (0% to 100%) for the gradient.
-        // 0.00 price means 50% red, 50% green.
-        // MAX_PRICE_SWING (15) means 0% red, 100% green.
-        // -MAX_PRICE_SWING (-15) means 100% red, 0% green.
-        const greenPercentage = 50 + (clampedPrice / MAX_PRICE_SWING) * 50;
-        const redPercentage = 100 - greenPercentage;
-
-        // Apply the linear gradient to the priceBox background.
-        // The white line will naturally sit at the transition point.
-        priceBox.style.background = `linear-gradient(to bottom, #FF0000 ${redPercentage}%, #00FF00 ${greenPercentage}%)`;
-        // Removed `transform: translateY` as it was causing the "whole block moves" effect.
-    }
+    // --- Chart Drawing Functions ---
 
     /**
-     * Animates the 'currentPrice' smoothly towards the 'targetPrice' using linear interpolation.
-     * This creates the visual 'push' effect on the gradient.
+     * Maps a price value to a Y-coordinate on the canvas.
+     * Price range: -MAX_PRICE_SWING to MAX_PRICE_SWING.
+     * Canvas Y-axis: 0 (top) to canvas.height (bottom).
+     * Inverse mapping: higher price is higher on the chart (smaller Y-value).
      */
-    function animatePriceBox() {
-        const easingFactor = 0.1; // Determines how fast currentPrice catches up to targetPrice (0-1)
-        currentPrice += (targetPrice - currentPrice) * easingFactor;
+    const priceToY = (price) => {
+        // Normalize price from [-MAX_PRICE_SWING, MAX_PRICE_SWING] to [0, 1]
+        const normalizedPrice = (price + MAX_PRICE_SWING) / (2 * MAX_PRICE_SWING);
+        // Invert Y-axis (higher price = lower Y-coordinate on canvas)
+        return canvas.height * (1 - normalizedPrice);
+    };
 
-        // Stop the animation loop if the current price is very close to the target price
-        // This prevents unnecessary `requestAnimationFrame` calls.
-        if (Math.abs(targetPrice - currentPrice) < 0.01) {
-            currentPrice = targetPrice; // Snap to the final target value to avoid floating point inaccuracies
-            updatePriceBox(); // One last update for perfect alignment
-            animationFrameId = null; // Clear the animation frame ID
-            return; // Stop the animation loop
+    /**
+     * Draws the 8-bit style chart on the canvas, including grid and candle.
+     */
+    function drawChart() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear canvas
+        ctx.imageSmoothingEnabled = false; // Always ensure pixelated drawing
+
+        // Draw background grid (optional, but good for 8-bit feel)
+        ctx.strokeStyle = '#333333'; // Dark grey for grid lines
+        ctx.lineWidth = 1;
+        // Horizontal lines
+        for (let i = 0; i <= 10; i++) { // 10 lines for basic grid
+            const y = (canvas.height / 10) * i;
+            ctx.beginPath();
+            ctx.moveTo(0, y);
+            ctx.lineTo(canvas.width, y);
+            ctx.stroke();
+        }
+        // Vertical lines
+        for (let i = 0; i <= 10; i++) {
+            const x = (canvas.width / 10) * i;
+            ctx.beginPath();
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x, canvas.height);
+            ctx.stroke();
         }
 
-        updatePriceBox(); // Update the visual display with the new interpolated price
-        animationFrameId = requestAnimationFrame(animatePriceBox); // Continue the animation
+        // Draw the static middle line (zero price line)
+        ctx.strokeStyle = '#FFFFFF'; // White for the middle line
+        ctx.lineWidth = 2; // Thicker line for emphasis
+        const midY = priceToY(0);
+        ctx.beginPath();
+        ctx.moveTo(0, midY);
+        ctx.lineTo(canvas.width, midY);
+        ctx.stroke();
+
+        // Draw the current "candle"
+        const candleWidth = Math.max(5, canvas.width / 10); // Responsive candle width, min 5px
+        const candleX = (canvas.width / 2) - (candleWidth / 2); // Center the candle
+        const candleHeight = Math.max(5, Math.abs(currentPrice / MAX_PRICE_SWING) * canvas.height / 2); // Height proportional to price magnitude
+        
+        let candleY;
+        let candleColor;
+
+        if (currentPrice > 0) { // Bulls pushing up (Green)
+            candleColor = '#00FF00'; // Green
+            candleY = midY - candleHeight; // Start drawing from midY and go up
+        } else if (currentPrice < 0) { // Bears pushing down (Red)
+            candleColor = '#FF0000'; // Red
+            candleY = midY; // Start drawing from midY and go down
+        } else { // Price is 0 (neutral)
+            candleColor = '#FFFFFF'; // White (or transparent, depending on preference)
+            candleY = midY - 2; // A small line if exactly zero
+            candleHeight = 4;
+        }
+
+        ctx.fillStyle = candleColor;
+        ctx.fillRect(candleX, candleY, candleWidth, candleHeight);
+
+        // Draw current price text overlay (optional, but useful)
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = '10px "Press Start 2P"';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        const priceText = `$${currentPrice.toFixed(2)}`;
+        ctx.fillText(priceText, canvas.width / 2, priceToY(currentPrice) - 20); // Position above the candle
+        
+        // Draw the faction-specific indicators
+        if (playerFaction) {
+            ctx.fillStyle = playerFaction === 'BULLS' ? '#00FF00' : '#FF0000';
+            ctx.fillText(playerFaction, canvas.width / 2, priceToY(currentPrice) + 20); // Position below the candle
+        }
     }
 
     /**
-     * Animates the "Tap to Push!" text indicator with a pulsating opacity.
-     * This animation is independent of the price movement.
+     * Animates the currentPrice towards the targetPrice using linear interpolation (lerp).
+     * Redraws the chart on each frame.
+     */
+    function animatePriceBox() {
+        const easingFactor = 0.1;
+        currentPrice += (targetPrice - currentPrice) * easingFactor;
+
+        // Stop animation if currentPrice is very close to targetPrice
+        if (Math.abs(targetPrice - currentPrice) < 0.01) {
+            currentPrice = targetPrice;
+            drawChart(); // Final draw
+            animationFrameId = null;
+            return;
+        }
+
+        drawChart(); // Redraw chart
+        animationFrameId = requestAnimationFrame(animatePriceBox);
+    }
+
+    /**
+     * Animates the "Tap to Push!" text on the canvas with pulsating opacity.
+     * This runs independently of the main chart animation.
      */
     function animateTapIndicator() {
         if (!showTapIndicator) {
             if (tapIndicatorAnimationFrameId) cancelAnimationFrame(tapIndicatorAnimationFrameId);
-            priceBox.style.backgroundImage = 'none'; // Remove the canvas background when not showing
             tapIndicatorAnimationFrameId = null;
+            drawChart(); // Re-draw chart to remove indicator
             return;
         }
 
-        // Create a temporary canvas element for the text
-        const canvas = document.createElement('canvas');
-        canvas.width = priceBox.offsetWidth;
-        canvas.height = 30; // Height allocated for the text
-        const ctx = canvas.getContext('2d');
-        ctx.imageSmoothingEnabled = false; // Essential for crisp pixelated text
+        // Draw chart first to get the base
+        drawChart();
 
+        // Now draw the pulsating text on top
         const now = Date.now();
-        const opacity = 0.5 + 0.5 * Math.sin(now / 150); // Calculate pulsating opacity
-        ctx.fillStyle = `rgba(255, 255, 255, ${opacity})`; // White text color with changing opacity
-        ctx.font = '10px "Press Start 2P"'; // Apply the retro font
-        ctx.textAlign = 'center'; // Center the text horizontally
-        ctx.fillText('Tap to Push!', canvas.width / 2, 20); // Position the text vertically
+        const opacity = 0.5 + 0.5 * Math.sin(now / 150); // Pulsating effect
+        ctx.fillStyle = `rgba(255, 255, 255, ${opacity})`;
+        ctx.font = '10px "Press Start 2P"';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('Tap to Push!', canvas.width / 2, canvas.height / 2); // Center the text
 
-        // Apply the canvas as a background image to the priceBox
-        priceBox.style.backgroundImage = `url(${canvas.toDataURL()})`;
-        priceBox.style.backgroundPosition = `center bottom`; // Position at the bottom
-        priceBox.style.backgroundRepeat = `no-repeat`; // Do not repeat the image
-
-        tapIndicatorAnimationFrameId = requestAnimationFrame(animateTapIndicator); // Continue this animation loop
+        tapIndicatorAnimationFrameId = requestAnimationFrame(animateTapIndicator);
     }
 });
