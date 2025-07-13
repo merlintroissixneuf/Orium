@@ -1,110 +1,127 @@
-body { 
-    background-color: #000000; 
-    color: #FFFFFF; 
-    font-family: 'Press Start 2P', cursive; 
-    display: flex; 
-    justify-content: center; 
-    align-items: center; 
-    min-height: 100vh; 
+body {
+    background-color: #000000;
+    color: #FFFFFF;
+    font-family: 'Press Start 2P', cursive;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
     margin: 0;
     padding: 0.5rem;
     font-size: 0.8rem;
     box-sizing: border-box;
-    image-rendering: pixelated;
+    image-rendering: pixelated; /* Ensures pixelated rendering for images/canvases */
 }
-.container { 
-    background-color: #000000; 
-    padding: 1.5rem; 
-    width: 100%; 
+
+.container {
+    background-color: #000000;
+    padding: 1.5rem;
+    width: 100%;
     max-width: 700px;
+    border: 2px solid #FFFFFF; /* Added border for a contained retro look */
 }
-h1, h2 { 
-    text-align: center; 
-    color: #00FF00; 
+
+h1, h2 {
+    text-align: center;
+    color: #00FF00; /* Neon green for headings */
     font-size: 1.4rem;
     margin: 1.5rem 0;
-    text-shadow: 2px 2px #000000;
+    text-shadow: 2px 2px #000000; /* Black shadow for retro arcade feel */
 }
-h3 { 
-    color: #00FF00; 
+
+h3 {
+    color: #00FF00;
     font-size: 1.1rem;
     margin: 0.8rem 0;
     text-shadow: 2px 2px #000000;
 }
+
 p {
     line-height: 1.4;
     margin: 0.5rem 0;
-    text-shadow: 1px 1px #000000;
+    text-shadow: 1px 1px #000000; /* Subtle shadow for body text */
 }
-input { 
-    width: 100%; 
-    padding: 10px; 
-    margin-bottom: 0.8rem; 
-    background-color: #000000; 
-    color: #FFFFFF; 
+
+input {
+    width: 100%;
+    padding: 10px;
+    margin-bottom: 0.8rem;
+    background-color: #000000;
+    color: #FFFFFF;
     box-sizing: border-box;
     font-family: 'Press Start 2P', cursive;
-    border: 2px solid #FFFFFF;
+    border: 2px solid #FFFFFF; /* White border for input fields */
     image-rendering: pixelated;
 }
+
 input::placeholder {
     color: #FFFFFF;
-    opacity: 0.6;
+    opacity: 0.6; /* Slightly transparent placeholder text */
 }
-button { 
-    width: 100%; 
-    padding: 8px; 
-    background-color: #000000; 
-    color: #00FF00; 
-    font-family: 'Press Start 2P', cursive; 
+
+button {
+    width: 100%;
+    padding: 8px;
+    background-color: #000000;
+    color: #00FF00;
+    font-family: 'Press Start 2P', cursive;
     font-size: 0.7rem;
-    cursor: pointer; 
-    border: 2px solid #00FF00;
-    transition: background-color 0.2s, color 0.2s, box-shadow 0.2s;
+    cursor: pointer;
+    border: 2px solid #00FF00; /* Green border for active buttons */
+    transition: background-color 0.2s, color 0.2s, box-shadow 0.2s; /* Smooth hover effects */
     image-rendering: pixelated;
 }
+
 button:hover {
     background-color: #00FF00;
     color: #000000;
-    box-shadow: 0 0 5px #00FF00;
+    box-shadow: 0 0 5px #00FF00; /* Glowing effect on hover */
 }
+
 button:disabled {
     background-color: #000000;
     color: #FFFFFF;
-    border: 2px solid #FFFFFF;
+    border: 2px solid #FFFFFF; /* White border for disabled buttons */
     cursor: not-allowed;
     box-shadow: none;
 }
-#message { 
-    margin: 0.8rem 0; 
-    text-align: center; 
-    font-weight: bold; 
+
+#message {
+    margin: 0.8rem 0;
+    text-align: center;
+    font-weight: bold;
     line-height: 1.4;
     text-shadow: 2px 2px #000000;
 }
-.toggle-link { 
-    text-align: center; 
-    margin: 0.8rem 0; 
-    font-size: 0.7rem; 
+
+.toggle-link {
+    text-align: center;
+    margin: 0.8rem 0;
+    font-size: 0.7rem;
     text-shadow: 1px 1px #000000;
 }
-a { 
-    color: #00FF00; 
-    cursor: pointer; 
-    text-decoration: none; 
+
+a {
+    color: #00FF00;
+    cursor: pointer;
+    text-decoration: none;
 }
-a:hover { 
-    text-decoration: underline; 
+
+a:hover {
+    text-decoration: underline;
 }
-.hidden { 
-    display: none; 
+
+.hidden {
+    display: none;
 }
-.success { 
-    color: #00FF00; 
+
+.success {
+    color: #00FF00;
     text-shadow: 2px 2px #000000;
 }
-.error { 
-    color: #FF0000; 
+
+.error {
+    color: #FF0000; /* Red for error messages */
     text-shadow: 2px 2px #000000;
 }
 
@@ -116,19 +133,22 @@ a:hover {
     padding-bottom: 0.8rem;
     margin-bottom: 1.5rem;
 }
+
 .user-info .username {
     font-size: 1.1rem;
     text-shadow: 2px 2px #000000;
 }
+
 .user-info .wallet {
     font-size: 0.7rem;
     opacity: 0.8;
     margin-top: 0.4rem;
     text-shadow: 1px 1px #000000;
 }
+
 .logout-btn {
     background: none;
-    color: #FF0000;
+    color: #FF0000; /* Red for logout button */
     padding: 6px 10px;
     font-size: 0.7rem;
     width: auto;
@@ -136,37 +156,44 @@ a:hover {
     transition: background-color 0.2s, color 0.2s, box-shadow 0.2s;
     image-rendering: pixelated;
 }
+
 .logout-btn:hover {
     background: #FF0000;
     color: #000000;
     box-shadow: 0 0 5px #FF0000;
 }
+
 .game-modes {
     display: flex;
     justify-content: space-between;
     gap: 1rem;
     margin-top: 1.5rem;
 }
+
 .game-tile {
     padding: 1rem;
-    flex-basis: 48%;
+    flex-basis: 48%; /* Allows two tiles per row on larger screens */
     text-align: center;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
+    border: 2px solid #FFFFFF; /* Added border to game tiles */
 }
+
 .game-tile h3 {
     color: #00FF00;
     margin: 0;
     font-size: 0.9rem;
     text-shadow: 2px 2px #000000;
 }
+
 .game-tile p {
     font-size: 0.65rem;
     margin-bottom: 1.5rem;
     opacity: 0.8;
     text-shadow: 1px 1px #000000;
 }
+
 .game-tile button {
     font-size: 0.7rem;
 }
@@ -181,11 +208,13 @@ a:hover {
     min-height: 80vh;
     background-color: #000000;
     padding: 1.5rem;
-    cursor: pointer;
-    -webkit-user-select: none;
+    cursor: pointer; /* Indicates interactivity */
+    -webkit-user-select: none; /* Disable text selection */
     -ms-user-select: none;
     user-select: none;
+    border: 2px solid #FFFFFF; /* Added border for arena */
 }
+
 #factionIndicator {
     font-family: 'Press Start 2P', cursive;
     font-size: 1.1rem;
@@ -193,6 +222,7 @@ a:hover {
     text-shadow: 2px 2px #000000;
     margin-bottom: 0.8rem;
 }
+
 #timer {
     font-family: 'Press Start 2P', cursive;
     font-size: 1.1rem;
@@ -200,6 +230,7 @@ a:hover {
     text-shadow: 2px 2px #000000;
     margin-bottom: 0.8rem;
 }
+
 #countdown {
     font-family: 'Press Start 2P', cursive;
     font-size: 1.4rem;
@@ -207,16 +238,19 @@ a:hover {
     text-shadow: 2px 2px #000000;
     margin-bottom: 0.8rem;
 }
+
 #priceBox {
-    background: linear-gradient(to bottom, #FF0000 50%, #00FF00 50%);
+    background: linear-gradient(to bottom, #FF0000 50%, #00FF00 50%); /* Default gradient */
     width: 100%;
-    max-width: 90vw;
+    max-width: 90vw; /* Responsive width */
     height: 250px;
     margin: 0.8rem 0;
     image-rendering: pixelated;
     border: 2px solid #FFFFFF;
-    position: relative;
+    position: relative; /* For the middle line */
+    overflow: hidden; /* Ensure content doesn't spill out with oscillation */
 }
+
 #priceBox::after {
     content: '';
     position: absolute;
@@ -224,9 +258,10 @@ a:hover {
     top: 50%;
     width: 100%;
     height: 2px;
-    background: #FFFFFF;
+    background: #FFFFFF; /* White line at the center */
     transform: translateY(-50%);
 }
+
 #scores {
     display: flex;
     justify-content: space-between;
@@ -235,18 +270,22 @@ a:hover {
     font-size: 0.7rem;
     margin: 0.8rem 0;
 }
+
 #bullsScore {
     color: #00FF00;
     text-shadow: 2px 2px #000000;
 }
+
 #bearsScore {
     color: #FF0000;
     text-shadow: 2px 2px #000000;
 }
+
 #userTapCount {
     color: #FFFFFF;
     text-shadow: 2px 2px #000000;
 }
+
 .match-over-screen {
     text-align: center;
     font-family: 'Press Start 2P', cursive;
@@ -256,31 +295,47 @@ a:hover {
     max-width: 700px;
     border: 2px solid #FFFFFF;
 }
+
 .match-over-screen h2 {
     font-size: 1.8rem;
     color: #00FF00;
     text-shadow: 2px 2px #000000;
     margin-bottom: 0.8rem;
 }
+
 .match-over-screen h3 {
     font-size: 1.4rem;
     color: #FFFFFF;
     text-shadow: 2px 2px #000000;
     margin-bottom: 0.8rem;
 }
+
 .leaderboard {
     margin: 0.8rem 0;
     font-size: 0.65rem;
     color: #FFFFFF;
     text-shadow: 2px 2px #000000;
 }
+
 .leaderboard-entry {
     margin: 0.4rem 0;
     padding: 0.4rem;
     background-color: #000000;
     border: 1px solid #FFFFFF;
     text-shadow: 2px 2px #000000;
+    /* Ensure font and color for specific text within entries if needed */
+    font-family: 'Press Start 2P', cursive;
+    color: #FFFFFF;
 }
+
+.leaderboard-entry .leaderboard-username {
+    color: #00FF00; /* Highlight username in green */
+}
+
+.leaderboard-entry .leaderboard-taps {
+    color: #FFFFFF; /* Keep tap count white */
+}
+
 #lobbyReturnButton {
     margin-top: 0.8rem;
     padding: 8px 16px;
@@ -292,6 +347,7 @@ a:hover {
     transition: background-color 0.2s, color 0.2s, box-shadow 0.2s;
     image-rendering: pixelated;
 }
+
 #lobbyReturnButton:hover {
     background-color: #00FF00;
     color: #000000;
@@ -305,17 +361,20 @@ a:hover {
     gap: 1.5rem;
     margin-bottom: 0.8rem;
 }
+
 .auth-form {
     flex: 1;
     padding: 0.8rem;
     background-color: #000000;
     border: 2px solid #FFFFFF;
 }
+
 .divider {
     width: 2px;
     background-color: #FFFFFF;
     opacity: 0.5;
 }
+
 #loading {
     text-align: center;
     color: #00FF00;
@@ -337,9 +396,7 @@ a:hover {
     border: 1px solid #FFFFFF;
     text-shadow: 1px 1px #000000;
 }
-.remember-toggle .toggle-label {
-    margin-left: 0.4rem;
-}
+
 .remember-toggle.active {
     background-color: #FFFFFF;
     color: #000000;
