@@ -8,19 +8,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const bearsScoreDisplay = document.querySelector('#bearsScore');
     const userTapCountDisplay = document.getElementById('userTapCount');
     const priceBox = document.getElementById('priceBox');
-    const MAX_PRICE_SWING = 15.00;
+    const MAX_PRICE_SWING = 15.00; // Max deviation from 0.00
     const MIN_TAP_INTERVAL = 50; // Minimum interval between taps in milliseconds
 
     let startPrice = 0;
-    let currentPrice = 0; // The price currently displayed
-    let targetPrice = 0; // The price the server sent
+    let currentPrice = 0; // The price currently displayed (interpolated)
+    let targetPrice = 0; // The price received from the server
     let canTap = false;
     let userTapCount = 0;
     let showTapIndicator = false; // Controls the pulsating "Tap to Push!" text
     let lastRedirect = 0; // Prevents multiple redirects on connection errors
-    let animationFrameId = null; // Stores the ID for requestAnimationFrame
+    let animationFrameId = null; // Stores the ID for requestAnimationFrame for price animation
+    let tapIndicatorAnimationFrameId = null; // Stores the ID for requestAnimationFrame for tap indicator
     let lastTapTime = 0; // Timestamp of the last successful tap
-    let oscillation = 0; // Visual oscillation effect on tap
     let lastTouchTime = 0; // For mobile tap rate limiting
 
     // Get matchId and token from URL parameters and local storage
@@ -29,29 +29,34 @@ document.addEventListener('DOMContentLoaded', () => {
     const token = localStorage.getItem('authToken');
 
     // Redirect to lobby if essential parameters are missing or on rapid errors
-    const now = Date.now();
     if (!matchId || !token) {
+        const now = Date.now();
         if (now - lastRedirect > 1000) { // Throttle redirects
             lastRedirect = now;
             console.log('Missing matchId or authToken, redirecting to lobby');
             window.location.href = '/';
         }
-        return;
+        return; // Stop execution if redirecting
     }
 
     // Initialize Socket.IO connection with authentication and reconnection logic
-    const socket = io({ auth: { token }, reconnection: true, reconnectionAttempts: 5, reconnectionDelay: 1000, reconnectionDelayMax: 5000 });
+    const socket = io({
+        auth: { token },
+        reconnection: true,
+        reconnectionAttempts: 5,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 5000
+    });
 
     // Handles player tap input (mouse click, touch, keyboard)
     const handleTap = () => {
-        const tapNow = Date.now(); // Get current time for this specific tap event
-        // Enforce client-side rate limiting
+        const tapNow = Date.now();
+        // Enforce client-side rate limiting to prevent spamming
         if (canTap && (tapNow - lastTapTime >= MIN_TAP_INTERVAL)) {
             socket.emit('playerTap', { matchId });
             userTapCount++;
             userTapCountDisplay.textContent = `Your Taps: ${userTapCount}`;
             lastTapTime = tapNow; // Update last tap time
-            oscillation = 2; // Trigger visual oscillation
             console.log(`Tap registered: userTapCount=${userTapCount}`);
         } else {
             console.log(`Tap rate-limited. Last tap: ${tapNow - lastTapTime}ms ago.`);
@@ -61,16 +66,16 @@ document.addEventListener('DOMContentLoaded', () => {
     // Event listeners for user input
     arenaContent.addEventListener('click', handleTap);
     arenaContent.addEventListener('touchstart', (e) => {
-        e.preventDefault(); // Prevent default touch behavior like scrolling
+        e.preventDefault(); // Prevent default touch behavior (e.g., scrolling, zooming)
         const touchNow = Date.now();
-        if (touchNow - lastTouchTime >= MIN_TAP_INTERVAL) { // Touch-specific rate limit
+        if (touchNow - lastTouchTime >= MIN_TAP_INTERVAL) {
             handleTap();
             lastTouchTime = touchNow;
         }
     }, { passive: false }); // Use passive: false to allow preventDefault
     document.addEventListener('keydown', (e) => {
         if (canTap && (e.key === ' ' || e.key === 'Enter')) {
-            e.preventDefault(); // Prevent default space/enter key actions (e.g., button click)
+            e.preventDefault(); // Prevent default space/enter key actions (e.g., button click, scroll)
             handleTap();
         }
     });
@@ -88,20 +93,25 @@ document.addEventListener('DOMContentLoaded', () => {
         startPrice = parseFloat(data.start_price) || 0;
         currentPrice = startPrice; // Set initial displayed price
         targetPrice = startPrice; // Set initial target price
-        
-        showTapIndicator = true; // Show "Tap to Push!" indicator
+
+        showTapIndicator = true; // Show "Tap to Push!" indicator initially
+        // Schedule indicator to hide after 3 seconds
         setTimeout(() => {
             showTapIndicator = false;
-            if (animationFrameId) cancelAnimationFrame(animationFrameId); // Stop indicator animation
-            updatePriceBox(); // Final update without indicator
+            if (tapIndicatorAnimationFrameId) cancelAnimationFrame(tapIndicatorAnimationFrameId); // Stop indicator animation
             priceBox.style.backgroundImage = 'none'; // Remove indicator canvas background
-            animationFrameId = null; // Clear animation frame ID for indicator
+            tapIndicatorAnimationFrameId = null; // Clear its animation frame ID
             console.log('Tap indicator cleared');
-        }, 3000); // Hide indicator after 3 seconds
-        
-        updatePriceBox(); // Initial render of the price box
+        }, 3000);
+
         // Start the price animation loop if not already running
-        if (!animationFrameId) animationFrameId = requestAnimationFrame(animatePriceBox);
+        if (!animationFrameId) {
+            animationFrameId = requestAnimationFrame(animatePriceBox);
+        }
+        // Start the tap indicator animation loop if not already running
+        if (!tapIndicatorAnimationFrameId) {
+            tapIndicatorAnimationFrameId = requestAnimationFrame(animateTapIndicator);
+        }
     });
 
     socket.on('gameStateUpdate', (data) => {
@@ -110,7 +120,9 @@ document.addEventListener('DOMContentLoaded', () => {
         bearsScoreDisplay.textContent = `BEARS: ${data.bearTaps || 0}`;
         console.log(`Game state update: newPrice=${targetPrice.toFixed(2)}, bullTaps=${data.bullTaps}, bearTaps=${data.bearTaps}`);
         // Ensure price box animation is running to smoothly transition to new price
-        if (!animationFrameId) animationFrameId = requestAnimationFrame(animatePriceBox);
+        if (!animationFrameId) {
+            animationFrameId = requestAnimationFrame(animatePriceBox);
+        }
     });
 
     socket.on('timeUpdate', (data) => {
@@ -129,18 +141,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
     socket.on('matchEnd', (data) => {
         console.log('Match ended:', data);
-        // Disable input and stop animations
+        // Disable input and stop all animations
         arenaContent.removeEventListener('click', handleTap);
         arenaContent.removeEventListener('touchstart', handleTap);
         document.removeEventListener('keydown', handleTap);
         canTap = false;
         if (animationFrameId) cancelAnimationFrame(animationFrameId);
-        
-        // Construct leaderboard HTML with proper classes for styling
+        if (tapIndicatorAnimationFrameId) cancelAnimationFrame(tapIndicatorAnimationFrameId);
+        animationFrameId = null;
+        tapIndicatorAnimationFrameId = null;
+
+        // Construct leaderboard HTML with proper classes for consistent 8-bit styling
         const leaderboardHTML = data.leaderboard.map(player =>
             `<div class="leaderboard-entry"><span class="leaderboard-username">${player.username}</span>: <span class="leaderboard-taps">${player.tap_count} taps</span></div>`
         ).join('');
-        
+
         // Update arena content with game over screen
         arenaContent.innerHTML = `
             <div class="match-over-screen">
@@ -161,10 +176,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     socket.on('connect_error', (err) => {
         console.error('Socket connection error:', err.message);
-        // Implement a more robust error display or re-queue logic if needed.
-        // For now, redirect to lobby to prevent being stuck.
-        if (Date.now() - lastRedirect > 1000) { // Prevent rapid redirection loops
-            lastRedirect = Date.now();
+        // Redirect to lobby to prevent being stuck on a broken connection
+        const now = Date.now();
+        if (now - lastRedirect > 1000) { // Throttle redirects to avoid loops
+            lastRedirect = now;
             window.location.href = '/';
         }
     });
@@ -178,107 +193,92 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log('Socket disconnected:', reason);
         canTap = false;
         if (animationFrameId) cancelAnimationFrame(animationFrameId);
-        // Only alert if disconnection is unexpected and not a planned match end
-        if (reason === 'io server disconnect') {
-            // The server initiated the disconnect, often after a match ends
-            console.log('Server initiated disconnect.');
-        } else {
-            console.warn('Unexpected socket disconnection.');
-        }
-        // No alert here, rely on automatic reconnection or user action
+        if (tapIndicatorAnimationFrameId) cancelAnimationFrame(tapIndicatorAnimationFrameId);
+        // Rely on automatic reconnection logic to handle UI updates
+        // No alert here, as reconnection attempts will follow
     });
 
     socket.on('reconnect', (attemptNumber) => {
         console.log(`Socket reconnected after ${attemptNumber} attempts.`);
-        canTap = true; // Re-enable tapping after reconnection
-        // Re-join the match to get the latest state if it's still active
-        if (matchId) {
+        canTap = true; // Re-enable tapping
+        if (matchId) { // Re-join the match to get the latest state
             socket.emit('joinMatch', { matchId });
         }
     });
 
     /**
-     * Updates the visual representation of the price box.
-     * Clamps the price, calculates gradient percentages, applies oscillation,
-     * and forces a DOM repaint for immediate visual update.
+     * Updates the visual representation of the price box background.
+     * The background is a linear gradient that shifts based on the 'currentPrice'.
      */
     function updatePriceBox() {
-        // Clamp currentPrice within the defined swing limits
+        // Clamp currentPrice within the defined swing limits for visual representation
         const clampedPrice = Math.max(-MAX_PRICE_SWING, Math.min(MAX_PRICE_SWING, currentPrice));
-        
-        // Calculate gradient percentages. Green grows from bottom (0% at -MAX_PRICE_SWING, 100% at MAX_PRICE_SWING).
-        // Red is the inverse.
+
+        // Map clampedPrice (-15 to +15) to a percentage (0% to 100%) for the gradient.
+        // 0.00 price means 50% red, 50% green.
+        // MAX_PRICE_SWING (15) means 0% red, 100% green.
+        // -MAX_PRICE_SWING (-15) means 100% red, 0% green.
         const greenPercentage = 50 + (clampedPrice / MAX_PRICE_SWING) * 50;
         const redPercentage = 100 - greenPercentage;
-        
+
+        // Apply the linear gradient to the priceBox background.
+        // The white line will naturally sit at the transition point.
         priceBox.style.background = `linear-gradient(to bottom, #FF0000 ${redPercentage}%, #00FF00 ${greenPercentage}%)`;
-        
-        // Apply vertical oscillation for visual tap feedback
-        const yOffset = oscillation > 0 ? Math.sin(Date.now() / 50) * oscillation : 0;
-        priceBox.style.transform = `translateY(${yOffset}px)`;
-        oscillation *= 0.9; // Decay oscillation over time
-        if (oscillation < 0.1) oscillation = 0; // Stop oscillation if it's too small
-
-        // No need to force DOM repaint explicitly like this, browser handles it for transform/background
-        // priceBox.style.display = 'none';
-        // priceBox.offsetHeight; // Trigger reflow
-        // priceBox.style.display = 'block';
-
-        // console.log(`Price box updated: currentPrice=${currentPrice.toFixed(2)}, greenPercentage=${greenPercentage.toFixed(2)}%`);
+        // Removed `transform: translateY` as it was causing the "whole block moves" effect.
     }
 
     /**
-     * Animates the currentPrice towards the targetPrice using linear interpolation (lerp).
-     * Continues to request animation frames until currentPrice is close to targetPrice
-     * and oscillation has faded.
+     * Animates the 'currentPrice' smoothly towards the 'targetPrice' using linear interpolation.
+     * This creates the visual 'push' effect on the gradient.
      */
     function animatePriceBox() {
-        const easingFactor = 0.1; // Controls the speed of price transition (0.1 means 10% of remaining diff per frame)
+        const easingFactor = 0.1; // Determines how fast currentPrice catches up to targetPrice (0-1)
         currentPrice += (targetPrice - currentPrice) * easingFactor;
 
-        // Stop the animation if the price is very close to target and oscillation has stopped
-        if (Math.abs(targetPrice - currentPrice) < 0.01 && oscillation < 0.1) {
-            currentPrice = targetPrice; // Snap to target to prevent floating point residue
-            updatePriceBox(); // Final update
+        // Stop the animation loop if the current price is very close to the target price
+        // This prevents unnecessary `requestAnimationFrame` calls.
+        if (Math.abs(targetPrice - currentPrice) < 0.01) {
+            currentPrice = targetPrice; // Snap to the final target value to avoid floating point inaccuracies
+            updatePriceBox(); // One last update for perfect alignment
             animationFrameId = null; // Clear the animation frame ID
             return; // Stop the animation loop
         }
 
-        updatePriceBox(); // Update the visual display
-        animationFrameId = requestAnimationFrame(animatePriceBox); // Continue animation
+        updatePriceBox(); // Update the visual display with the new interpolated price
+        animationFrameId = requestAnimationFrame(animatePriceBox); // Continue the animation
     }
 
     /**
-     * Animates the "Tap to Push!" indicator with pulsating opacity.
-     * This runs separately from the main price animation.
+     * Animates the "Tap to Push!" text indicator with a pulsating opacity.
+     * This animation is independent of the price movement.
      */
     function animateTapIndicator() {
         if (!showTapIndicator) {
-            if (animationFrameId) cancelAnimationFrame(animationFrameId); // Stop animation if not needed
-            priceBox.style.backgroundImage = 'none'; // Remove the canvas background
-            animationFrameId = null; // Clear its animation frame ID
+            if (tapIndicatorAnimationFrameId) cancelAnimationFrame(tapIndicatorAnimationFrameId);
+            priceBox.style.backgroundImage = 'none'; // Remove the canvas background when not showing
+            tapIndicatorAnimationFrameId = null;
             return;
         }
 
-        // Create a temporary canvas for the pulsating text
+        // Create a temporary canvas element for the text
         const canvas = document.createElement('canvas');
         canvas.width = priceBox.offsetWidth;
-        canvas.height = 30; // Height for the text
+        canvas.height = 30; // Height allocated for the text
         const ctx = canvas.getContext('2d');
-        ctx.imageSmoothingEnabled = false; // For crisp pixel art text
+        ctx.imageSmoothingEnabled = false; // Essential for crisp pixelated text
 
         const now = Date.now();
-        const opacity = 0.5 + 0.5 * Math.sin(now / 150); // Pulsating effect
-        ctx.fillStyle = `rgba(255, 255, 255, ${opacity})`; // White pulsating text
-        ctx.font = '10px "Press Start 2P"'; // Apply the 8-bit font
-        ctx.textAlign = 'center';
-        ctx.fillText('Tap to Push!', canvas.width / 2, 20); // Center text vertically and horizontally
+        const opacity = 0.5 + 0.5 * Math.sin(now / 150); // Calculate pulsating opacity
+        ctx.fillStyle = `rgba(255, 255, 255, ${opacity})`; // White text color with changing opacity
+        ctx.font = '10px "Press Start 2P"'; // Apply the retro font
+        ctx.textAlign = 'center'; // Center the text horizontally
+        ctx.fillText('Tap to Push!', canvas.width / 2, 20); // Position the text vertically
 
-        // Set the canvas as the background image of the price box
+        // Apply the canvas as a background image to the priceBox
         priceBox.style.backgroundImage = `url(${canvas.toDataURL()})`;
-        priceBox.style.backgroundPosition = `center bottom`;
-        priceBox.style.backgroundRepeat = `no-repeat`;
+        priceBox.style.backgroundPosition = `center bottom`; // Position at the bottom
+        priceBox.style.backgroundRepeat = `no-repeat`; // Do not repeat the image
 
-        animationFrameId = requestAnimationFrame(animateTapIndicator); // Continue animation
+        tapIndicatorAnimationFrameId = requestAnimationFrame(animateTapIndicator); // Continue this animation loop
     }
 });
