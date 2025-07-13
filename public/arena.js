@@ -18,7 +18,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const MAX_PRICE_SWING = 15.00; // Max deviation from 0.00
     const MIN_TAP_INTERVAL = 50; // Minimum interval between taps in milliseconds
     const CANDLE_SEGMENT_DURATION = 10; // Each candle represents 10 seconds
-    const TOTAL_CANDLES = 6; // 60 seconds / 10 seconds per candle = 6 candles
+    const TOTAL_CANDLES = 6; // 60 seconds / 10 seconds per candle = 6 candles (historical + current)
 
     let startPrice = 0;
     let currentPrice = 0; // The price currently displayed (interpolated)
@@ -32,7 +32,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let lastTapTime = 0; // Timestamp of the last successful tap
     let lastTouchTime = 0; // For mobile tap rate limiting
     let playerFaction = null; // Store the player's assigned faction
-    let pastPrices = []; // Store prices for the 6 x 10-second candles
+    let pastPrices = Array(TOTAL_CANDLES).fill(0); // Initialize with 6 entries for 6 candles. Index 0 is oldest, last is current.
 
     // Get matchId and token from URL parameters and local storage
     const urlParams = new URLSearchParams(window.location.search);
@@ -42,15 +42,15 @@ document.addEventListener('DOMContentLoaded', () => {
     // Redirect to lobby if essential parameters are missing or on rapid errors
     if (!matchId || !token) {
         const now = Date.now();
-        if (now - lastRedirect > 1000) { // Throttle redirects
+        if (now - lastRedirect > 1000) {
             lastRedirect = now;
             console.log('Missing matchId or authToken, redirecting to lobby');
             window.location.href = '/';
         }
-        return; // Stop execution if redirecting
+        return;
     }
 
-    // --- Chart Utility Function ---
+    // --- Chart Utility Function (Moved to higher scope to fix initialization error) ---
     /**
      * Maps a price value to a Y-coordinate on the canvas.
      * Price range: -MAX_PRICE_SWING to MAX_PRICE_SWING.
@@ -58,9 +58,7 @@ document.addEventListener('DOMContentLoaded', () => {
      * Inverse mapping: higher price is lower on the chart (smaller Y-value).
      */
     const priceToY = (price) => {
-        // Normalize price from [-MAX_PRICE_SWING, MAX_PRICE_SWING] to [0, 1]
         const normalizedPrice = (price + MAX_PRICE_SWING) / (2 * MAX_PRICE_SWING);
-        // Invert Y-axis (higher price = lower Y-coordinate on canvas)
         return canvas.height * (1 - normalizedPrice);
     };
 
@@ -91,9 +89,9 @@ document.addEventListener('DOMContentLoaded', () => {
             userTapCount++;
             userTapCountDisplay.textContent = `Your Taps: ${userTapCount}`;
             lastTapTime = tapNow;
-            console.log(`Tap registered: userTapCount=${userTapCount}`);
+            // No direct visual feedback on tap, server update drives chart movement
         } else {
-            console.log(`Tap rate-limited. Last tap: ${tapNow - lastTapTime}ms ago.`);
+            // console.log(`Tap rate-limited. Last tap: ${tapNow - lastTapTime}ms ago.`);
         }
     };
 
@@ -127,7 +125,7 @@ document.addEventListener('DOMContentLoaded', () => {
         startPrice = parseFloat(data.start_price) || 0;
         currentPrice = startPrice;
         targetPrice = startPrice;
-        pastPrices = Array(TOTAL_CANDLES).fill(startPrice); // Initialize with start price
+        pastPrices = Array(TOTAL_CANDLES).fill(startPrice); // Initialize all candles to start price
 
         showTapIndicator = true;
         setTimeout(() => {
@@ -143,16 +141,16 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     socket.on('gameStateUpdate', (data) => {
-        targetPrice = parseFloat(data.newPrice) || 0; // New overall price
+        targetPrice = parseFloat(data.newPrice) || 0;
         bullsScoreDisplay.textContent = `BULLS: ${data.bullTaps || 0}`;
         bearsScoreDisplay.textContent = `BEARS: ${data.bearTaps || 0}`;
-        console.log(`Game state update: newPrice=${targetPrice.toFixed(2)}, bullTaps=${data.bullTaps}, bearTaps=${data.bearTaps}`);
-        
-        // If a new 10-second segment just ended, push the old price and update
+        // console.log(`Game state update: newPrice=${targetPrice.toFixed(2)}, bullTaps=${data.bullTaps}, bearTaps=${data.bearTaps}`);
+
+        // Update past prices if a new candle price is provided by the server
         if (data.candlePrice !== undefined) {
              pastPrices.shift(); // Remove the oldest price
-             pastPrices.push(parseFloat(data.candlePrice)); // Add the new segmented price
-             console.log("Past prices updated:", pastPrices);
+             pastPrices.push(parseFloat(data.candlePrice)); // Add the new segmented price for the past candle
+             // console.log("Past prices updated:", pastPrices);
         }
 
         if (!animationFrameId) animationFrameId = requestAnimationFrame(animatePriceBox);
@@ -232,8 +230,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // --- Chart Drawing Functions ---
+
     /**
      * Draws the 8-bit style chart on the canvas, including past "candles" and the active candle.
+     * The candle represents the current price.
      */
     function drawChart() {
         ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear canvas
@@ -248,66 +249,62 @@ document.addEventListener('DOMContentLoaded', () => {
         ctx.lineTo(canvas.width, midY);
         ctx.stroke();
 
-        // Calculate dimensions for all candles
-        const totalCandleAreaWidth = canvas.width * 0.8; // Use 80% of width for candles
-        const singleCandleWidth = Math.max(5, totalCandleAreaWidth / (TOTAL_CANDLES + 1)); // +1 for the active candle
-        const spacing = (canvas.width - (singleCandleWidth * (TOTAL_CANDLES + 1))) / (TOTAL_CANDLES + 2); // Even spacing
+        // Define dimensions and spacing for all candles (historical + active)
+        const totalCandleGroupWidth = canvas.width * 0.9; // Use 90% of canvas width for candles
+        const gapBetweenCandles = Math.max(3, canvas.width * 0.01); // Minimal gap for pixel art feel
+        const effectiveCandleCount = TOTAL_CANDLES; // Six 10-sec candles
+        const individualCandleAreaWidth = totalCandleGroupWidth / effectiveCandleCount;
+        const candleBodyWidth = Math.max(8, individualCandleAreaWidth * 0.6); // Adjust body width, min 8px
 
-        // Draw past "candles" (as simple vertical lines for 8-bit clarity)
-        pastPrices.forEach((price, index) => {
-            if (index === TOTAL_CANDLES) return; // Skip last one, which is the current active candle
-
-            const candleX = spacing + (index * (singleCandleWidth + spacing));
+        // Draw past "candles" (all but the very last one in pastPrices array)
+        for (let i = 0; i < pastPrices.length -1; i++) { // Loop through historical prices
+            const price = pastPrices[i];
             const clampedPrice = Math.max(-MAX_PRICE_SWING, Math.min(MAX_PRICE_SWING, price));
             
+            const candleX = (i * individualCandleAreaWidth) + (individualCandleAreaWidth - candleBodyWidth) / 2 + (canvas.width - totalCandleGroupWidth) / 2;
+
             let candleColor;
-            let candleHeight = Math.max(2, Math.abs(clampedPrice / MAX_PRICE_SWING) * (canvas.height * 0.4)); // Shorter lines for history
+            let candleTopY; // Top of the rectangle (lower Y value)
+            let candleHeight;
 
-            let candleStartY; // Top of the line (lower Y value)
-            let candleEndY;   // Bottom of the line (higher Y value)
-
-            if (clampedPrice > 0) {
-                candleColor = '#00FF00'; // Green
-                candleStartY = priceToY(clampedPrice);
-                candleEndY = midY;
-            } else if (clampedPrice < 0) {
-                candleColor = '#FF0000'; // Red
-                candleStartY = midY;
-                candleEndY = priceToY(clampedPrice);
-            } else {
-                candleColor = '#FFFFFF'; // White
-                candleStartY = midY - 1;
-                candleEndY = midY + 1;
+            if (clampedPrice > 0) { // Bullish: Green, grows upwards from 0-line
+                candleColor = '#00FF00';
+                candleTopY = priceToY(clampedPrice);
+                candleHeight = midY - candleTopY;
+            } else if (clampedPrice < 0) { // Bearish: Red, grows downwards from 0-line
+                candleColor = '#FF0000';
+                candleTopY = midY;
+                candleHeight = priceToY(clampedPrice) - midY;
+            } else { // Neutral: White (small line at zero)
+                candleColor = '#FFFFFF';
+                candleTopY = midY - 1; // Small line centered on midY
                 candleHeight = 2;
             }
+            candleHeight = Math.max(1, candleHeight); // Ensure minimum height
 
-            ctx.strokeStyle = candleColor;
-            ctx.lineWidth = 3; // Line thickness
-            ctx.beginPath();
-            ctx.moveTo(candleX + singleCandleWidth / 2, candleStartY);
-            ctx.lineTo(candleX + singleCandleWidth / 2, candleEndY);
-            ctx.stroke();
-        });
+            ctx.fillStyle = candleColor;
+            ctx.fillRect(candleX, candleTopY, candleBodyWidth, candleHeight);
+        }
 
-
-        // Draw the current active "candle" (much larger and clearer)
-        const activeCandleX = spacing + (TOTAL_CANDLES * (singleCandleWidth + spacing)); // Position after historical candles
-        const clampedCurrentPrice = Math.max(-MAX_PRICE_SWING, Math.min(MAX_PRICE_SWING, currentPrice));
-
+        // Draw the current active "candle" (always the last one in pastPrices or currentPrice)
+        // This candle will be dynamic, while past ones are static representations.
+        const activeCandlePrice = currentPrice; // Use the interpolating currentPrice for the active candle
+        const clampedActivePrice = Math.max(-MAX_PRICE_SWING, Math.min(MAX_PRICE_SWING, activeCandlePrice));
+        
+        const activeCandleX = ((TOTAL_CANDLES - 1) * individualCandleAreaWidth) + (individualCandleAreaWidth - candleBodyWidth) / 2 + (canvas.width - totalCandleGroupWidth) / 2;
+        
         let activeCandleColor;
-        let activeCandleHeight = Math.max(5, Math.abs(clampedCurrentPrice / MAX_PRICE_SWING) * (canvas.height * 0.7)); // Much taller
+        let activeCandleTopY;
+        let activeCandleDrawHeight;
 
-        let activeCandleTopY; // Top Y-coordinate for the rectangle
-        let activeCandleDrawHeight; // Actual height to draw (positive)
-
-        if (clampedCurrentPrice > 0) { // Bullish: Green
+        if (clampedActivePrice > 0) { // Bullish: Green
             activeCandleColor = '#00FF00';
-            activeCandleTopY = priceToY(clampedCurrentPrice);
+            activeCandleTopY = priceToY(clampedActivePrice);
             activeCandleDrawHeight = midY - activeCandleTopY;
-        } else if (clampedCurrentPrice < 0) { // Bearish: Red
+        } else if (clampedActivePrice < 0) { // Bearish: Red
             activeCandleColor = '#FF0000';
             activeCandleTopY = midY;
-            activeCandleDrawHeight = priceToY(clampedCurrentPrice) - midY;
+            activeCandleDrawHeight = priceToY(clampedActivePrice) - midY;
         } else { // Neutral: White (small line at zero)
             activeCandleColor = '#FFFFFF';
             activeCandleTopY = midY - 2;
@@ -316,17 +313,26 @@ document.addEventListener('DOMContentLoaded', () => {
         activeCandleDrawHeight = Math.max(1, activeCandleDrawHeight); // Ensure minimum height
 
         ctx.fillStyle = activeCandleColor;
-        ctx.fillRect(activeCandleX, activeCandleTopY, singleCandleWidth, activeCandleDrawHeight);
+        // Make active candle slightly wider/taller for emphasis
+        const activeCandleExtraWidth = Math.max(0, candleBodyWidth * 0.5); // 50% wider
+        const activeCandleFinalWidth = candleBodyWidth + activeCandleExtraWidth;
+        ctx.fillRect(activeCandleX - activeCandleExtraWidth / 2, activeCandleTopY, activeCandleFinalWidth, activeCandleDrawHeight);
 
 
         // Draw current price value (without dollar sign)
         ctx.fillStyle = '#FFFFFF';
-        ctx.font = '12px "Press Start 2P"'; // Slightly larger for current price
+        ctx.font = '14px "Press Start 2P"'; // Larger font for current price
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        const priceText = `${currentPrice.toFixed(2)}`; // No dollar sign
-        ctx.fillText(priceText, activeCandleX + singleCandleWidth / 2, priceToY(clampedCurrentPrice) - 30); // Position above/below the candle
-
+        const priceText = `${activeCandlePrice.toFixed(2)}`; // No dollar sign, 2 decimal places
+        // Position price text more clearly above the active candle
+        let priceTextY = priceToY(clampedActivePrice);
+        if (clampedActivePrice >= 0) { // If price is positive or zero, text is above candle
+            priceTextY -= (activeCandleDrawHeight / 2) + 15;
+        } else { // If price is negative, text is below candle
+            priceTextY += (activeCandleDrawHeight / 2) + 15;
+        }
+        ctx.fillText(priceText, activeCandleX + activeCandleFinalWidth / 2, priceTextY);
     }
 
     /**
@@ -334,7 +340,7 @@ document.addEventListener('DOMContentLoaded', () => {
      * Redraws the chart on each frame to show the active candle moving.
      */
     function animatePriceBox() {
-        const easingFactor = 0.1;
+        const easingFactor = 0.15; // Increased easing for slightly faster movement
         currentPrice += (targetPrice - currentPrice) * easingFactor;
 
         if (Math.abs(targetPrice - currentPrice) < 0.01) {
@@ -364,7 +370,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const now = Date.now();
         const opacity = 0.5 + 0.5 * Math.sin(now / 150);
-        ctx.fillStyle = `rgba(255, 255, 255, ${opacity})`;
+        ctx.fillStyle = `rgba(255, 255, 255, ${opacity})`; // White pulsating text
         ctx.font = '16px "Press Start 2P"'; // Larger for indicator
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
