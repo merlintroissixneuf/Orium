@@ -1,3 +1,5 @@
+
+
 body {
     background-color: #000000;
     color: #FFFFFF;
@@ -10,40 +12,38 @@ body {
     padding: 0.5rem;
     font-size: 0.8rem;
     box-sizing: border-box;
-    image-rendering: pixelated; /* Crucial for all pixel art elements, including canvas */
+    image-rendering: pixelated; /* Crucial for all pixel art elements */
 }
 
-/* Base container, no specific border here to allow content to define its own */
 .container {
     background-color: #000000;
     padding: 1.5rem;
     width: 100%;
     max-width: 700px;
-    /* Removed redundant border */
 }
 
-h1, h2 {
+h1, h2, h3 {
     text-align: center;
+    font-family: 'Press Start 2P', cursive;
+    text-shadow: 2px 2px #000000; /* Black shadow for arcade feel */
     color: #00FF00; /* Neon green */
+}
+
+h2 {
     font-size: 1.4rem;
     margin: 1.5rem 0;
-    text-shadow: 2px 2px #000000; /* Black shadow for arcade feel */
-    font-family: 'Press Start 2P', cursive; /* Ensure font is explicitly applied */
 }
 
 h3 {
-    color: #00FF00;
     font-size: 1.1rem;
     margin: 0.8rem 0;
-    text-shadow: 2px 2px #000000;
-    font-family: 'Press Start 2P', cursive; /* Ensure font is explicitly applied */
 }
 
 p {
     line-height: 1.4;
     margin: 0.5rem 0;
-    text-shadow: 1px 1px #000000; /* Subtle shadow for body text */
-    font-family: 'Press Start 2P', cursive; /* Ensure font is explicitly applied */
+    font-family: 'Press Start 2P', cursive;
+    text-shadow: 1px 1px #000000;
 }
 
 input {
@@ -54,7 +54,7 @@ input {
     color: #FFFFFF;
     box-sizing: border-box;
     font-family: 'Press Start 2P', cursive;
-    border: 2px solid #FFFFFF; /* White border for input fields */
+    border: 2px solid #FFFFFF;
     image-rendering: pixelated;
 }
 
@@ -71,7 +71,7 @@ button {
     font-family: 'Press Start 2P', cursive;
     font-size: 0.7rem;
     cursor: pointer;
-    border: 2px solid #00FF00; /* Green border for active buttons */
+    border: 2px solid #00FF00;
     transition: background-color 0.2s, color 0.2s, box-shadow 0.2s;
     image-rendering: pixelated;
 }
@@ -96,22 +96,22 @@ button:disabled {
     font-weight: bold;
     line-height: 1.4;
     text-shadow: 2px 2px #000000;
-    font-family: 'Press Start 2P', cursive; /* Ensure font is explicitly applied */
+    font-family: 'Press Start 2P', cursive;
 }
 
 .toggle-link {
     text-align: center;
     margin: 0.8rem 0;
     font-size: 0.7rem;
+    font-family: 'Press Start 2P', cursive;
     text-shadow: 1px 1px #000000;
-    font-family: 'Press Start 2P', cursive; /* Ensure font is explicitly applied */
 }
 
 a {
     color: #00FF00;
     cursor: pointer;
     text-decoration: none;
-    font-family: 'Press Start 2P', cursive; /* Ensure font is explicitly applied */
+    font-family: 'Press Start 2P', cursive;
 }
 
 a:hover {
@@ -143,16 +143,12 @@ a:hover {
 
 .user-info .username {
     font-size: 1.1rem;
-    text-shadow: 2px 2px #000000;
-    font-family: 'Press Start 2P', cursive; /* Ensure font is explicitly applied */
 }
 
 .user-info .wallet {
     font-size: 0.7rem;
     opacity: 0.8;
     margin-top: 0.4rem;
-    text-shadow: 1px 1px #000000;
-    font-family: 'Press Start 2P', cursive; /* Ensure font is explicitly applied */
 }
 
 .logout-btn {
@@ -162,8 +158,6 @@ a:hover {
     font-size: 0.7rem;
     width: auto;
     border: 2px solid #FF0000;
-    transition: background-color 0.2s, color 0.2s, box-shadow 0.2s;
-    image-rendering: pixelated;
 }
 
 .logout-btn:hover {
@@ -186,27 +180,18 @@ a:hover {
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    border: 2px solid #FFFFFF; /* Retained border for game tiles */
+    border: 2px solid #FFFFFF;
 }
 
 .game-tile h3 {
-    color: #00FF00;
     margin: 0;
     font-size: 0.9rem;
-    text-shadow: 2px 2px #000000;
-    font-family: 'Press Start 2P', cursive; /* Ensure font is explicitly applied */
 }
 
 .game-tile p {
     font-size: 0.65rem;
     margin-bottom: 1.5rem;
     opacity: 0.8;
-    text-shadow: 1px 1px #000000;
-    font-family: 'Press Start 2P', cursive; /* Ensure font is explicitly applied */
-}
-
-.game-tile button {
-    font-size: 0.7rem;
 }
 
 /* --- Arena Styles --- */
@@ -220,16 +205,16 @@ a:hover {
     background-color: #000000;
     padding: 1.5rem;
     cursor: pointer;
-    -webkit-user-select: none;
+    -webkit-user-select: none; /* Prevent text selection on tap */
     -ms-user-select: none;
     user-select: none;
-    border: none; /* Removed border from arenaContent */
+    border: none;
 }
 
-#factionIndicator, #timer, #countdown, #bullsScore, #bearsScore, #userTapCount {
+#factionIndicator, #timer, #countdown, #userTapCount {
     font-family: 'Press Start 2P', cursive;
     text-shadow: 2px 2px #000000;
-    color: #FFFFFF; /* Default white, overridden by specific colors below */
+    color: #FFFFFF;
 }
 
 #factionIndicator {
@@ -248,66 +233,53 @@ a:hover {
     margin-bottom: 0.8rem;
 }
 
-#priceBox { /* This is the container for the canvas chart */
+#priceBox { /* The container for our canvas */
     width: 100%;
-    max-width: 90vw;
-    height: 250px; /* Fixed height for consistency */
+    height: 350px; /* Taller to better fit the vertical candle */
     margin: 0.8rem 0;
     background-color: #000000;
-    border: 2px solid #FFFFFF; /* White border around the entire chart area */
     position: relative;
     overflow: hidden;
+    /* The border is now drawn on the canvas itself */
 }
 
 #priceChartCanvas {
     display: block;
     width: 100%;
     height: 100%;
-    image-rendering: pixelated; /* CRITICAL for pixel-perfect canvas rendering */
-    background-color: #000000; /* Ensure canvas has a black background */
+    image-rendering: pixelated;
+    background-color: #000000;
 }
 
 #scores {
     display: flex;
-    justify-content: space-between;
+    justify-content: center; /* Center the 'Your Taps' text */
     width: 100%;
-    font-size: 0.7rem;
+    font-size: 0.9rem; /* Make user tap count more prominent */
     margin: 0.8rem 0;
-}
-
-#bullsScore {
-    color: #00FF00;
-}
-
-#bearsScore {
-    color: #FF0000;
 }
 
 #userTapCount {
     color: #FFFFFF;
 }
 
+/* --- Match Over Screen Styles --- */
 .match-over-screen {
     text-align: center;
-    font-family: 'Press Start 2P', cursive;
     background-color: #000000;
     padding: 1.5rem;
     width: 100%;
     max-width: 700px;
-    border: 2px solid #FFFFFF; /* Border for the overall game over screen */
+    border: 2px solid #FFFFFF;
 }
 
 .match-over-screen h2 {
     font-size: 1.8rem;
-    color: #00FF00;
-    text-shadow: 2px 2px #000000;
     margin-bottom: 0.8rem;
 }
 
 .match-over-screen h3 {
     font-size: 1.4rem;
-    color: #FFFFFF;
-    text-shadow: 2px 2px #000000;
     margin-bottom: 0.8rem;
 }
 
@@ -315,92 +287,23 @@ a:hover {
     margin: 0.8rem 0;
     font-size: 0.65rem;
     color: #FFFFFF;
-    text-shadow: 2px 2px #000000;
 }
 
 .leaderboard-entry {
     margin: 0.4rem 0;
     padding: 0.4rem;
     background-color: #000000;
-    border: 1px solid #FFFFFF; /* Border for each leaderboard entry */
-    text-shadow: 2px 2px #000000;
-    font-family: 'Press Start 2P', cursive;
-    color: #FFFFFF;
+    border: 1px solid #FFFFFF;
 }
 
 .leaderboard-entry .leaderboard-username {
     color: #00FF00;
 }
 
-.leaderboard-entry .leaderboard-taps {
-    color: #FFFFFF;
-    font-weight: bold;
-}
-
 #lobbyReturnButton {
     margin-top: 0.8rem;
     padding: 8px 16px;
-    background-color: #000000;
-    color: #00FF00;
-    font-family: 'Press Start 2P', cursive;
-    cursor: pointer;
-    border: 2px solid #00FF00;
-    transition: background-color 0.2s, color 0.2s, box-shadow 0.2s;
-    image-rendering: pixelated;
-}
-
-#lobbyReturnButton:hover {
-    background-color: #00FF00;
-    color: #000000;
-    box-shadow: 0 0 5px #00FF00;
-}
-
-/* --- Auth Styles --- */
-.auth-container {
-    display: flex;
-    justify-content: space-between;
-    gap: 1.5rem;
-    margin-bottom: 0.8rem;
-}
-
-.auth-form {
-    flex: 1;
-    padding: 0.8rem;
-    background-color: #000000;
-    border: 2px solid #FFFFFF; /* Retained border for auth forms */
-}
-
-.divider {
-    width: 2px;
-    background-color: #FFFFFF;
-    opacity: 0.5;
-}
-
-#loading {
-    text-align: center;
-    color: #00FF00;
-    font-size: 0.9rem;
-    margin-top: 0.8rem;
-    text-shadow: 2px 2px #000000;
-}
-
-.remember-toggle {
-    display: flex;
-    align-items: center;
-    margin: 0.4rem 0 0.8rem;
-    font-size: 0.65rem;
-    cursor: pointer;
-    padding: 0.2rem 0.4rem;
-    background-color: #000000;
-    width: fit-content;
-    border: 1px solid #FFFFFF;
-    text-shadow: 1px 1px #000000;
-}
-
-.remember-toggle.active {
-    background-color: #FFFFFF;
-    color: #000000;
-    border: 1px solid #00FF00;
+    width: auto;
 }
 
 /* --- Mobile Responsiveness --- */
@@ -409,36 +312,12 @@ a:hover {
         padding: 0.8rem;
         max-width: 100%;
     }
-    .auth-container {
-        flex-direction: column;
-        gap: 0.8rem;
-    }
-    .divider {
-        display: none;
-    }
     .game-modes {
         flex-direction: column;
-        gap: 0.8rem;
     }
-    .game-tile {
-        padding: 0.8rem;
-    }
-    #scores {
-        flex-direction: column;
-        gap: 0.4rem;
-        align-items: center;
-        font-size: 0.8rem;
-    }
-    h1, h2 {
-        font-size: 1.3rem;
-    }
-    h3 {
-        font-size: 1.1rem;
-    }
-    button {
-        font-size: 0.75rem;
-        padding: 8px;
-    }
+    h2 { font-size: 1.3rem; }
+    h3 { font-size: 1.1rem; }
+    
     #priceBox {
         width: 95vw;
         height: 300px;
@@ -446,60 +325,6 @@ a:hover {
     #factionIndicator, #timer, #countdown {
         font-size: 1.2rem;
     }
-    .match-over-screen {
-        padding: 0.8rem;
-    }
-    .match-over-screen h2 {
-        font-size: 1.5rem;
-    }
-    .match-over-screen h3 {
-        font-size: 1.3rem;
-    }
-    .leaderboard {
-        font-size: 0.7rem;
-    }
-}
-
-/* --- Larger Screens --- */
-@media (min-width: 1200px) {
-    .container {
-        max-width: 900px;
-        padding: 2rem;
-    }
-    h1, h2 {
-        font-size: 1.8rem;
-    }
-    h3 {
-        font-size: 1.4rem;
-    }
-    button {
-        font-size: 0.9rem;
-        padding: 10px;
-    }
-    .game-tile {
-        padding: 1.5rem;
-    }
-    #priceBox {
-        max-width: 80vw;
-        height: 350px;
-    }
-    #factionIndicator, #timer, #countdown {
-        font-size: 1.4rem;
-    }
-    #scores {
-        font-size: 0.9rem;
-    }
-    .match-over-screen {
-        max-width: 900px;
-        padding: 2rem;
-    }
-    .match-over-screen h2 {
-        font-size: 2.2rem;
-    }
-    .match-over-screen h3 {
-        font-size: 1.8rem;
-    }
-    .leaderboard {
-        font-size: 0.8rem;
-    }
+    .match-over-screen h2 { font-size: 1.5rem; }
+    .match-over-screen h3 { font-size: 1.3rem; }
 }
