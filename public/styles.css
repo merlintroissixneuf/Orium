@@ -1,7 +1,7 @@
 body {
     background-color: #000000;
     color: #FFFFFF;
-    font-family: 'Press Start 2P', cursive;
+    font-family: 'Press Start 2P', cursive; /* Applied globally */
     display: flex;
     justify-content: center;
     align-items: center;
@@ -10,15 +10,16 @@ body {
     padding: 0.5rem;
     font-size: 0.8rem;
     box-sizing: border-box;
-    image-rendering: pixelated; /* Essential for crisp pixel art fonts and canvas drawings */
+    image-rendering: pixelated; /* Crucial for all pixel art elements */
 }
 
-/* No border on the main container for a cleaner look */
+/* Base container, no specific border here to allow content to define its own */
 .container {
     background-color: #000000;
     padding: 1.5rem;
     width: 100%;
     max-width: 700px;
+    /* Removed redundant border */
 }
 
 h1, h2 {
@@ -56,7 +57,7 @@ input {
 
 input::placeholder {
     color: #FFFFFF;
-    opacity: 0.6; /* Slightly transparent placeholder text */
+    opacity: 0.6;
 }
 
 button {
@@ -68,20 +69,20 @@ button {
     font-size: 0.7rem;
     cursor: pointer;
     border: 2px solid #00FF00; /* Green border for active buttons */
-    transition: background-color 0.2s, color 0.2s, box-shadow 0.2s; /* Smooth hover effects */
+    transition: background-color 0.2s, color 0.2s, box-shadow 0.2s;
     image-rendering: pixelated;
 }
 
 button:hover {
     background-color: #00FF00;
     color: #000000;
-    box-shadow: 0 0 5px #00FF00; /* Glowing effect on hover */
+    box-shadow: 0 0 5px #00FF00;
 }
 
 button:disabled {
     background-color: #000000;
     color: #FFFFFF;
-    border: 2px solid #FFFFFF; /* White border for disabled buttons */
+    border: 2px solid #FFFFFF;
     cursor: not-allowed;
     box-shadow: none;
 }
@@ -121,7 +122,7 @@ a:hover {
 }
 
 .error {
-    color: #FF0000; /* Red for error messages */
+    color: #FF0000;
     text-shadow: 2px 2px #000000;
 }
 
@@ -148,7 +149,7 @@ a:hover {
 
 .logout-btn {
     background: none;
-    color: #FF0000; /* Red for logout button */
+    color: #FF0000;
     padding: 6px 10px;
     font-size: 0.7rem;
     width: auto;
@@ -172,12 +173,12 @@ a:hover {
 
 .game-tile {
     padding: 1rem;
-    flex-basis: 48%; /* Allows two tiles per row on larger screens */
+    flex-basis: 48%;
     text-align: center;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    border: 2px solid #FFFFFF; /* Added back for game tiles for consistency */
+    border: 2px solid #FFFFFF; /* Retained border for game tiles */
 }
 
 .game-tile h3 {
@@ -199,6 +200,7 @@ a:hover {
 }
 
 /* --- Arena Styles --- */
+/* The arena content itself has no border, allowing the internal elements to define borders */
 #arenaContent {
     display: flex;
     flex-direction: column;
@@ -215,71 +217,65 @@ a:hover {
     /* Removed border */
 }
 
-#factionIndicator {
+#factionIndicator, #timer, #countdown, #bullsScore, #bearsScore, #userTapCount {
     font-family: 'Press Start 2P', cursive;
+    text-shadow: 2px 2px #000000; /* Ensure all text elements have shadow */
+    color: #FFFFFF; /* Default white, overridden by specific colors below */
+}
+
+#factionIndicator {
     font-size: 1.1rem;
-    color: #00FF00;
-    text-shadow: 2px 2px #000000;
+    color: #00FF00; /* Faction is green */
     margin-bottom: 0.8rem;
 }
 
 #timer {
-    font-family: 'Press Start 2P', cursive;
     font-size: 1.1rem;
-    color: #FFFFFF;
-    text-shadow: 2px 2px #000000;
     margin-bottom: 0.8rem;
 }
 
 #countdown {
-    font-family: 'Press Start 2P', cursive;
     font-size: 1.4rem;
-    color: #FFFFFF;
-    text-shadow: 2px 2px #000000;
     margin-bottom: 0.8rem;
 }
 
 #priceBox { /* This is the container for the canvas chart */
     width: 100%;
     max-width: 90vw;
-    height: 250px; /* Fixed height for consistency */
+    height: 250px;
     margin: 0.8rem 0;
-    background-color: #000000; /* Background behind the canvas */
-    border: 2px solid #FFFFFF; /* The white border around the chart area */
+    background-color: #000000; /* Black background for the chart area */
+    border: 2px solid #FFFFFF; /* White border around the entire chart area */
     position: relative;
     overflow: hidden;
 }
 
 #priceChartCanvas {
-    display: block; /* Removes extra space below canvas */
+    display: block;
     width: 100%;
     height: 100%;
-    image-rendering: pixelated; /* Crucial for crisp pixel graphics on canvas */
-    background-color: #000000; /* Ensure canvas itself has black background */
+    image-rendering: pixelated; /* Critical for pixelated canvas rendering */
+    background-color: #000000; /* Ensure canvas has a black background */
 }
 
 #scores {
     display: flex;
     justify-content: space-between;
     width: 100%;
-    font-family: 'Press Start 2P', cursive;
     font-size: 0.7rem;
     margin: 0.8rem 0;
 }
 
 #bullsScore {
     color: #00FF00;
-    text-shadow: 2px 2px #000000;
 }
 
 #bearsScore {
     color: #FF0000;
-    text-shadow: 2px 2px #000000;
 }
 
 #userTapCount {
     color: #FFFFFF;
-    text-shadow: 2px 2px #000000;
 }
 
 .match-over-screen {
@@ -289,7 +285,7 @@ a:hover {
     padding: 1.5rem;
     width: 100%;
     max-width: 700px;
-    border: 2px solid #FFFFFF; /* Retained this border for the overall match-end container */
+    border: 2px solid #FFFFFF; /* Border for the overall game over screen */
 }
 
 .match-over-screen h2 {
@@ -319,18 +315,17 @@ a:hover {
     background-color: #000000;
     border: 1px solid #FFFFFF; /* Border for each leaderboard entry */
     text-shadow: 2px 2px #000000;
-    font-family: 'Press Start 2P', cursive; /* Ensure font is applied */
-    color: #FFFFFF; /* Default text color */
+    font-family: 'Press Start 2P', cursive;
+    color: #FFFFFF;
 }
 
-/* Specific styling for elements within leaderboard entries for better 8-bit feel */
 .leaderboard-entry .leaderboard-username {
-    color: #00FF00; /* Make username green for clear distinction */
+    color: #00FF00; /* Green for usernames */
 }
 
 .leaderboard-entry .leaderboard-taps {
-    color: #FFFFFF; /* Keep tap count white */
-    font-weight: bold; /* Make tap count slightly bolder */
+    color: #FFFFFF;
+    font-weight: bold;
 }
 
 #lobbyReturnButton {
@@ -351,7 +346,7 @@ a:hover {
     box-shadow: 0 0 5px #00FF00;
 }
 
-/* --- Auth Styles --- */
+/* --- Auth Styles (kept consistent with lobby) --- */
 .auth-container {
     display: flex;
     justify-content: space-between;
@@ -363,7 +358,7 @@ a:hover {
     flex: 1;
     padding: 0.8rem;
     background-color: #000000;
-    /* Removed border */
+    border: 2px solid #FFFFFF; /* Retained border for auth forms */
 }
 
 .divider {
@@ -380,7 +375,6 @@ a:hover {
     text-shadow: 2px 2px #000000;
 }
 
-/* --- Custom Toggle --- */
 .remember-toggle {
     display: flex;
     align-items: center;
