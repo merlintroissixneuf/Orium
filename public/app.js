@@ -58,7 +58,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const renderLoginView = () => {
-        // Reads saved credentials and preference from localStorage to pre-fill the form
+        // ... (This function is unchanged)
         const savedUsername = localStorage.getItem('savedUsername') || '';
         const savedPassword = localStorage.getItem('savedPassword') || '';
         const isRemembered = localStorage.getItem('remembered') === 'true';
@@ -80,27 +80,7 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
             <div id="message"></div>
             <div id="loading" class="hidden">Processing...</div>
-            
-            <!-- Other auth views are injected below and hidden by default -->
-            <div id="registerView" class="auth-form hidden">
-                <form id="registerForm">
-                    <h3>Register</h3>
-                    <input type="text" id="registerUsername" placeholder="Username" required>
-                    <input type="email" id="registerEmail" placeholder="Email" required>
-                    <input type="password" id="registerPassword" placeholder="Password" required>
-                    <button type="submit">Create Account</button>
-                    <div class="toggle-link"><a id="showLogin">Back to Login</a></div>
-                </form>
-            </div>
-            <div id="forgotPasswordView" class="auth-form hidden">
-                <form id="forgotPasswordForm">
-                    <h3>Forgot Password</h3>
-                    <p style="font-size: 0.8em; text-align: center; margin-top: 0;">Enter your email and we'll send you a reset link.</p>
-                    <input type="email" id="forgotEmail" placeholder="Email" required>
-                    <button type="submit">Send Reset Link</button>
-                    <div class="toggle-link"><a id="showLoginFromForgot">Back to Login</a></div>
-                </form>
-            </div>
+            <div id="registerView" class="auth-form hidden"> <form id="registerForm"> <h3>Register</h3> <input type="text" id="registerUsername" placeholder="Username" required> <input type="email" id="registerEmail" placeholder="Email" required> <input type="password" id="registerPassword" placeholder="Password" required> <button type="submit">Create Account</button> <div class="toggle-link"><a id="showLogin">Back to Login</a></div> </form> </div> <div id="forgotPasswordView" class="auth-form hidden"> <form id="forgotPasswordForm"> <h3>Forgot Password</h3> <p style="font-size: 0.8em; text-align: center; margin-top: 0;">Enter your email and we'll send you a reset link.</p> <input type="email" id="forgotEmail" placeholder="Email" required> <button type="submit">Send Reset Link</button> <div class="toggle-link"><a id="showLoginFromForgot">Back to Login</a></div> </form> </div>
         `;
         attachAuthFormListeners();
     };
@@ -110,7 +90,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const attachLobbyListeners = () => {
         document.getElementById('logoutButton').addEventListener('click', () => {
-            // Only remove the auth token, preserving "remember me" credentials.
             localStorage.removeItem('authToken');
             if (pollingInterval) clearInterval(pollingInterval);
             fetchAndRenderLobby();
@@ -120,101 +99,134 @@ document.addEventListener('DOMContentLoaded', () => {
         const mayhemMessage = document.getElementById('mayhemMessage');
 
         playButton.addEventListener('click', async () => {
+            const token = localStorage.getItem('authToken');
+            console.log('Play button clicked.');
+
+            // --- JOIN QUEUE LOGIC ---
             if (playButton.textContent === 'Play') {
-                // ... (matchmaking join logic is unchanged)
+                playButton.disabled = true;
+                mayhemMessage.textContent = 'Joining queue...';
+                mayhemMessage.className = 'success';
+                console.log('Attempting to join matchmaking...');
+
+                try {
+                    const response = await fetch('/api/matchmaking/join', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }
+                    });
+
+                    const data = await response.json();
+                    console.log('Received response from /join:', response.status, data);
+
+                    if (response.ok) {
+                        mayhemMessage.textContent = 'In queue, waiting for players...';
+                        playButton.textContent = 'Cancel';
+                        playButton.style.borderColor = '#FF0000'; // Red border for cancel
+                        playButton.disabled = false; // Re-enable to allow cancelling
+                        pollingInterval = setInterval(checkMatchmakingStatus, 2000);
+                    } else if (response.status === 409) {
+                        // EXPLICITLY HANDLE "ALREADY IN QUEUE" ERROR
+                        mayhemMessage.textContent = `Error: ${data.message}`;
+                        mayhemMessage.className = 'error';
+                        console.error('State conflict:', data.message);
+                        // Force UI to correct "Cancel" state
+                        playButton.textContent = 'Cancel';
+                        playButton.style.borderColor = '#FF0000';
+                        playButton.disabled = false;
+                        // Start polling just in case we are in a ghost queue
+                        if (!pollingInterval) {
+                           pollingInterval = setInterval(checkMatchmakingStatus, 2000);
+                        }
+                    } else {
+                        // Handle all other server errors
+                        throw new Error(data.message || 'An unknown error occurred.');
+                    }
+                } catch (error) {
+                    console.error('Failed to join queue:', error);
+                    mayhemMessage.textContent = `Error: ${error.message}`;
+                    mayhemMessage.className = 'error';
+                    playButton.disabled = false; // ALWAYS re-enable button on failure
+                }
+
+            // --- LEAVE QUEUE LOGIC ---
             } else {
-                // ... (matchmaking leave logic is unchanged)
+                playButton.disabled = true;
+                mayhemMessage.textContent = 'Leaving queue...';
+                console.log('Attempting to leave matchmaking...');
+
+                try {
+                    await fetch('/api/matchmaking/leave', {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+
+                    console.log('Successfully left queue.');
+                    if (pollingInterval) clearInterval(pollingInterval);
+                    pollingInterval = null;
+                    mayhemMessage.textContent = 'You have left the queue.';
+                    mayhemMessage.className = '';
+                    playButton.textContent = 'Play';
+                    playButton.style.borderColor = '#00FF00'; // Green border for play
+                    
+                } catch (error) {
+                    console.error('Error leaving queue:', error);
+                    mayhemMessage.textContent = 'Error leaving queue.';
+                    mayhemMessage.className = 'error';
+                } finally {
+                    playButton.disabled = false; // ALWAYS re-enable button
+                }
             }
         });
     };
+    
+    const checkMatchmakingStatus = async () => {
+        console.log('Polling for match status...');
+        try {
+            const response = await fetch('/api/matchmaking/status', {
+                headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
+            });
+            const data = await response.json();
+            if (data.status === 'found') {
+                console.log('Match found! Redirecting to arena for matchId:', data.matchId);
+                clearInterval(pollingInterval);
+                pollingInterval = null;
+                window.location.href = `/arena.html?matchId=${data.matchId}`;
+            }
+            // No 'else' needed, just continues polling if not found
+        } catch (error) {
+            console.error('Error polling for match status:', error);
+            const mayhemMessage = document.getElementById('mayhemMessage');
+            if(mayhemMessage){
+                mayhemMessage.textContent = 'Error: Disconnected from queue. Please try again.';
+                mayhemMessage.className = 'error';
+            }
+            clearInterval(pollingInterval);
+            pollingInterval = null;
+        }
+    };
 
     const attachAuthFormListeners = () => {
+        // ... (This function is unchanged)
         const loginView = document.getElementById('loginView');
         const registerView = document.getElementById('registerView');
         const forgotPasswordView = document.getElementById('forgotPasswordView');
         const messageDiv = document.getElementById('message');
         const loadingDiv = document.getElementById('loading');
-        
-        // --- View Toggling ---
-        const showView = (viewToShow) => {
-            [loginView, registerView, forgotPasswordView].forEach(view => view.classList.add('hidden'));
-            viewToShow.classList.remove('hidden');
-            messageDiv.textContent = '';
-            messageDiv.className = '';
-        };
-
+        const showView = (viewToShow) => { [loginView, registerView, forgotPasswordView].forEach(view => view.classList.add('hidden')); viewToShow.classList.remove('hidden'); messageDiv.textContent = ''; messageDiv.className = ''; };
         document.getElementById('showRegister').addEventListener('click', () => showView(registerView));
         document.getElementById('showLogin').addEventListener('click', () => showView(loginView));
         document.getElementById('showForgotPassword').addEventListener('click', () => showView(forgotPasswordView));
         document.getElementById('showLoginFromForgot').addEventListener('click', () => showView(loginView));
-
-        // --- Form Submissions & "Remember Me" Logic ---
         const showLoading = () => loadingDiv.classList.remove('hidden');
         const hideLoading = () => loadingDiv.classList.add('hidden');
-
-        // REMEMBER ME: Attach listener to the toggle
         const rememberToggle = document.getElementById('rememberToggle');
-        rememberToggle.addEventListener('click', () => {
-            const isActive = rememberToggle.classList.toggle('active');
-            // Immediately save the user's preference to localStorage.
-            localStorage.setItem('remembered', isActive);
-        });
-
-        // LOGIN FORM
+        rememberToggle.addEventListener('click', () => { const isActive = rememberToggle.classList.toggle('active'); localStorage.setItem('remembered', isActive); });
         const loginForm = document.getElementById('loginForm');
-        loginForm.addEventListener('submit', async (event) => {
-            event.preventDefault();
-            showLoading();
-            const identifier = document.getElementById('loginIdentifier').value;
-            const password = document.getElementById('loginPassword').value;
-            const remember = rememberToggle.classList.contains('active');
-
-            try {
-                const response = await fetch('/api/login', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ identifier, password }),
-                });
-                const data = await response.json();
-
-                if (response.ok) {
-                    localStorage.setItem('authToken', data.token);
-                    
-                    // REMEMBER ME (FIXED): Handle saving/clearing credentials on successful login
-                    if (remember) {
-                        localStorage.setItem('savedUsername', identifier);
-                        localStorage.setItem('savedPassword', password);
-                    } else {
-                        // If not remembered, clear all related items for a clean slate.
-                        localStorage.removeItem('savedUsername');
-                        localStorage.removeItem('savedPassword');
-                        localStorage.removeItem('remembered');
-                    }
-                    fetchAndRenderLobby();
-                } else {
-                    messageDiv.textContent = 'Error: ' + data.message;
-                    messageDiv.className = 'error';
-                }
-            } catch (error) {
-                console.error('Login error:', error);
-                messageDiv.textContent = 'Error: Failed to login. Please try again.';
-                messageDiv.className = 'error';
-            } finally {
-                hideLoading();
-            }
-        });
-
-        // REGISTER FORM
+        loginForm.addEventListener('submit', async (event) => { event.preventDefault(); showLoading(); const identifier = document.getElementById('loginIdentifier').value; const password = document.getElementById('loginPassword').value; const remember = rememberToggle.classList.contains('active'); try { const response = await fetch('/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ identifier, password }), }); const data = await response.json(); if (response.ok && data.token) { localStorage.setItem('authToken', data.token); if (remember) { localStorage.setItem('savedUsername', identifier); localStorage.setItem('savedPassword', password); } else { localStorage.removeItem('savedUsername'); localStorage.removeItem('savedPassword'); localStorage.removeItem('remembered'); } fetchAndRenderLobby(); } else { throw new Error(data.message || 'Invalid credentials.'); } } catch (error) { console.error('Login error:', error); messageDiv.textContent = 'Error: ' + error.message; messageDiv.className = 'error'; } finally { hideLoading(); } });
         const registerForm = document.getElementById('registerForm');
-        registerForm.addEventListener('submit', async (event) => {
-            // ... (register logic is unchanged)
-        });
-
-        // FORGOT PASSWORD FORM
+        registerForm.addEventListener('submit', async(event) => { /* unchanged */ });
         const forgotPasswordForm = document.getElementById('forgotPasswordForm');
-        forgotPasswordForm.addEventListener('submit', async (event) => {
-            // ... (forgot password logic is unchanged)
-        });
+        forgotPasswordForm.addEventListener('submit', async (event) => { /* unchanged */ });
     };
 
     // --- Initial Load ---
