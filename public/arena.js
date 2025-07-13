@@ -7,13 +7,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const bullsScoreDisplay = document.querySelector('#bullsScore');
     const bearsScoreDisplay = document.querySelector('#bearsScore');
     const userTapCountDisplay = document.getElementById('userTapCount');
-    const priceBox = document.getElementById('priceBox'); // This will now be our canvas container
-    
-    // Create and append the canvas element
+    const priceBox = document.getElementById('priceBox'); // This is the canvas container
+
+    // Create and append the canvas element directly to priceBox
     const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
     canvas.id = 'priceChartCanvas';
     priceBox.appendChild(canvas);
+    const ctx = canvas.getContext('2d');
 
     const MAX_PRICE_SWING = 15.00; // Max deviation from 0.00
     const MIN_TAP_INTERVAL = 50; // Minimum interval between taps in milliseconds
@@ -47,6 +47,20 @@ document.addEventListener('DOMContentLoaded', () => {
         return; // Stop execution if redirecting
     }
 
+    // --- Chart Utility Function (Moved to higher scope) ---
+    /**
+     * Maps a price value to a Y-coordinate on the canvas.
+     * Price range: -MAX_PRICE_SWING to MAX_PRICE_SWING.
+     * Canvas Y-axis: 0 (top) to canvas.height (bottom).
+     * Inverse mapping: higher price is higher on the chart (smaller Y-value).
+     */
+    const priceToY = (price) => {
+        // Normalize price from [-MAX_PRICE_SWING, MAX_PRICE_SWING] to [0, 1]
+        const normalizedPrice = (price + MAX_PRICE_SWING) / (2 * MAX_PRICE_SWING);
+        // Invert Y-axis (higher price = lower Y-coordinate on canvas)
+        return canvas.height * (1 - normalizedPrice);
+    };
+
     // Set up canvas dimensions (responsive)
     const resizeCanvas = () => {
         canvas.width = priceBox.offsetWidth;
@@ -57,7 +71,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window.addEventListener('resize', resizeCanvas);
     resizeCanvas(); // Initial canvas setup
 
-    // Initialize Socket.IO connection with authentication and reconnection logic
+    // Initialize Socket.IO connection
     const socket = io({
         auth: { token },
         reconnection: true,
@@ -66,7 +80,7 @@ document.addEventListener('DOMContentLoaded', () => {
         reconnectionDelayMax: 5000
     });
 
-    // Handles player tap input (mouse click, touch, keyboard)
+    // Handles player tap input
     const handleTap = () => {
         const tapNow = Date.now();
         if (canTap && (tapNow - lastTapTime >= MIN_TAP_INTERVAL)) {
@@ -98,7 +112,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Socket.IO event handlers
-
     socket.on('connect', () => {
         console.log('Socket connected, joining match:', matchId);
         socket.emit('joinMatch', { matchId });
@@ -106,7 +119,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     socket.on('matchJoined', (data) => {
         console.log('Match joined:', data);
-        playerFaction = data.faction.toUpperCase(); // Store player's faction
+        playerFaction = data.faction.toUpperCase();
         factionIndicator.textContent = `FACTION: ${playerFaction}`;
         startPrice = parseFloat(data.start_price) || 0;
         currentPrice = startPrice;
@@ -210,48 +223,34 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Chart Drawing Functions ---
 
     /**
-     * Maps a price value to a Y-coordinate on the canvas.
-     * Price range: -MAX_PRICE_SWING to MAX_PRICE_SWING.
-     * Canvas Y-axis: 0 (top) to canvas.height (bottom).
-     * Inverse mapping: higher price is higher on the chart (smaller Y-value).
-     */
-    const priceToY = (price) => {
-        // Normalize price from [-MAX_PRICE_SWING, MAX_PRICE_SWING] to [0, 1]
-        const normalizedPrice = (price + MAX_PRICE_SWING) / (2 * MAX_PRICE_SWING);
-        // Invert Y-axis (higher price = lower Y-coordinate on canvas)
-        return canvas.height * (1 - normalizedPrice);
-    };
-
-    /**
-     * Draws the 8-bit style chart on the canvas, including grid and candle.
+     * Draws the 8-bit style chart on the canvas, including grid and current candle.
+     * The candle represents the current price.
      */
     function drawChart() {
-        ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear canvas
-        ctx.imageSmoothingEnabled = false; // Always ensure pixelated drawing
+        ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear canvas for redraw
+        ctx.imageSmoothingEnabled = false; // Ensure pixelated drawing
 
-        // Draw background grid (optional, but good for 8-bit feel)
-        ctx.strokeStyle = '#333333'; // Dark grey for grid lines
+        // Draw background grid lines (optional but enhances 8-bit feel)
+        ctx.strokeStyle = '#333333'; // Dark grey
         ctx.lineWidth = 1;
-        // Horizontal lines
-        for (let i = 0; i <= 10; i++) { // 10 lines for basic grid
-            const y = (canvas.height / 10) * i;
-            ctx.beginPath();
-            ctx.moveTo(0, y);
-            ctx.lineTo(canvas.width, y);
-            ctx.stroke();
-        }
-        // Vertical lines
+        const gridStepX = canvas.width / 10; // Example: 10 vertical grid lines
+        const gridStepY = canvas.height / 10; // Example: 10 horizontal grid lines
+
         for (let i = 0; i <= 10; i++) {
-            const x = (canvas.width / 10) * i;
             ctx.beginPath();
-            ctx.moveTo(x, 0);
-            ctx.lineTo(x, canvas.height);
+            ctx.moveTo(i * gridStepX, 0);
+            ctx.lineTo(i * gridStepX, canvas.height);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(0, i * gridStepY);
+            ctx.lineTo(canvas.width, i * gridStepY);
             ctx.stroke();
         }
 
         // Draw the static middle line (zero price line)
-        ctx.strokeStyle = '#FFFFFF'; // White for the middle line
-        ctx.lineWidth = 2; // Thicker line for emphasis
+        ctx.strokeStyle = '#FFFFFF'; // White line
+        ctx.lineWidth = 2; // Thicker for emphasis
         const midY = priceToY(0);
         ctx.beginPath();
         ctx.moveTo(0, midY);
@@ -259,82 +258,85 @@ document.addEventListener('DOMContentLoaded', () => {
         ctx.stroke();
 
         // Draw the current "candle"
-        const candleWidth = Math.max(5, canvas.width / 10); // Responsive candle width, min 5px
-        const candleX = (canvas.width / 2) - (candleWidth / 2); // Center the candle
-        const candleHeight = Math.max(5, Math.abs(currentPrice / MAX_PRICE_SWING) * canvas.height / 2); // Height proportional to price magnitude
-        
-        let candleY;
-        let candleColor;
+        const candleWidth = Math.max(8, canvas.width / 15); // Responsive width, min 8px
+        const candleX = (canvas.width / 2) - (candleWidth / 2); // Center the candle horizontally
 
-        if (currentPrice > 0) { // Bulls pushing up (Green)
-            candleColor = '#00FF00'; // Green
-            candleY = midY - candleHeight; // Start drawing from midY and go up
-        } else if (currentPrice < 0) { // Bears pushing down (Red)
-            candleColor = '#FF0000'; // Red
-            candleY = midY; // Start drawing from midY and go down
-        } else { // Price is 0 (neutral)
-            candleColor = '#FFFFFF'; // White (or transparent, depending on preference)
-            candleY = midY - 2; // A small line if exactly zero
-            candleHeight = 4;
+        // Clamp currentPrice for rendering, to avoid drawing outside bounds
+        const clampedCurrentPrice = Math.max(-MAX_PRICE_SWING, Math.min(MAX_PRICE_SWING, currentPrice));
+
+        let candleTopY = priceToY(Math.max(0, clampedCurrentPrice)); // Top of the candle
+        let candleBottomY = priceToY(Math.min(0, clampedCurrentPrice)); // Bottom of the candle
+
+        // Ensure candle height is always positive and at least 1 pixel
+        const candleHeight = Math.max(1, Math.abs(candleTopY - candleBottomY));
+
+        let candleColor;
+        if (clampedCurrentPrice > 0) { // Bullish: Green, grows upwards from 0-line
+            candleColor = '#00FF00';
+            candleTopY = priceToY(clampedCurrentPrice); // Higher price is lower Y
+            candleBottomY = midY;
+        } else if (clampedCurrentPrice < 0) { // Bearish: Red, grows downwards from 0-line
+            candleColor = '#FF0000';
+            candleTopY = midY;
+            candleBottomY = priceToY(clampedCurrentPrice); // Lower price is higher Y
+        } else { // Neutral: White (small line at zero)
+            candleColor = '#FFFFFF';
+            candleTopY = midY - 2;
+            candleBottomY = midY + 2;
         }
 
         ctx.fillStyle = candleColor;
-        ctx.fillRect(candleX, candleY, candleWidth, candleHeight);
+        ctx.fillRect(candleX, candleTopY, candleWidth, candleHeight);
 
-        // Draw current price text overlay (optional, but useful)
+        // Draw current price text overlay
         ctx.fillStyle = '#FFFFFF';
         ctx.font = '10px "Press Start 2P"';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        const priceText = `$${currentPrice.toFixed(2)}`;
-        ctx.fillText(priceText, canvas.width / 2, priceToY(currentPrice) - 20); // Position above the candle
-        
-        // Draw the faction-specific indicators
-        if (playerFaction) {
-            ctx.fillStyle = playerFaction === 'BULLS' ? '#00FF00' : '#FF0000';
-            ctx.fillText(playerFaction, canvas.width / 2, priceToY(currentPrice) + 20); // Position below the candle
-        }
+        const priceText = `${currentPrice >= 0 ? '$' : '-$'}${Math.abs(currentPrice).toFixed(2)}`;
+        // Position price text slightly above the candle (or based on direction)
+        const textYOffset = (clampedCurrentPrice > 0) ? -20 : 20; // Offset based on direction
+        ctx.fillText(priceText, canvas.width / 2, priceToY(clampedCurrentPrice) + textYOffset);
     }
 
     /**
-     * Animates the currentPrice towards the targetPrice using linear interpolation (lerp).
-     * Redraws the chart on each frame.
+     * Animates the currentPrice smoothly towards the targetPrice.
+     * Redraws the chart on each frame to show the candle moving.
      */
     function animatePriceBox() {
-        const easingFactor = 0.1;
+        const easingFactor = 0.1; // Controls the speed of price transition
         currentPrice += (targetPrice - currentPrice) * easingFactor;
 
-        // Stop animation if currentPrice is very close to targetPrice
+        // Stop the animation loop if the current price is very close to the target price
         if (Math.abs(targetPrice - currentPrice) < 0.01) {
-            currentPrice = targetPrice;
-            drawChart(); // Final draw
-            animationFrameId = null;
-            return;
+            currentPrice = targetPrice; // Snap to the final target value
+            drawChart(); // One last update for perfect alignment
+            animationFrameId = null; // Clear the animation frame ID
+            return; // Stop the animation loop
         }
 
-        drawChart(); // Redraw chart
-        animationFrameId = requestAnimationFrame(animatePriceBox);
+        drawChart(); // Redraw chart with the new interpolated price
+        animationFrameId = requestAnimationFrame(animatePriceBox); // Continue the animation
     }
 
     /**
      * Animates the "Tap to Push!" text on the canvas with pulsating opacity.
-     * This runs independently of the main chart animation.
+     * This animation is drawn on top of the current chart.
      */
     function animateTapIndicator() {
         if (!showTapIndicator) {
             if (tapIndicatorAnimationFrameId) cancelAnimationFrame(tapIndicatorAnimationFrameId);
             tapIndicatorAnimationFrameId = null;
-            drawChart(); // Re-draw chart to remove indicator
+            drawChart(); // Redraw chart to remove the indicator
             return;
         }
 
-        // Draw chart first to get the base
-        drawChart();
+        drawChart(); // Always draw the base chart first
 
         // Now draw the pulsating text on top
         const now = Date.now();
-        const opacity = 0.5 + 0.5 * Math.sin(now / 150); // Pulsating effect
-        ctx.fillStyle = `rgba(255, 255, 255, ${opacity})`;
+        const opacity = 0.5 + 0.5 * Math.sin(now / 150);
+        ctx.fillStyle = `rgba(255, 255, 255, ${opacity})`; // White pulsating text
         ctx.font = '10px "Press Start 2P"';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
